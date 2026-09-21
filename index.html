@@ -344,6 +344,7 @@ scene.add(floorFx);
 const FX = {
   t: 0, rippleT: 1.5, borderFlash: 0,
   aberration: 0, glitch: 0,
+  timeScale: 1,   // 1 = tempo pieno, 0.65 = slow-mo (transizione morbida ~200 ms)
   worldToUv(x, z, out){ out.set(x / CFG.grid + 0.5, 0.5 - z / CFG.grid); return out; },
   ripple(worldPos, colorHex){
     this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uRipplePos.value);
@@ -355,9 +356,12 @@ const FX = {
   triggerGlitch(){ this.glitch = 1; },
   foodAt(worldPos){ this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uFoodPos.value); },
   headAt(worldPos){ this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uHeadPos.value); },
-  update(dt, frozen){
-    if (!frozen) this.t += dt;
-    if (!frozen) this.rippleT = Math.min(1.5, this.rippleT + dt / 0.8);
+  update(dt, frozen, targetScale = 1){
+    /* transizione morbida verso la scala temporale target (slow-mo) */
+    this.timeScale += (targetScale - this.timeScale) * (1 - Math.exp(-dt / 0.06));
+    const sdt = dt * this.timeScale;
+    if (!frozen) this.t += sdt;
+    if (!frozen) this.rippleT = Math.min(1.5, this.rippleT + sdt / 0.8);
     this.borderFlash *= Math.pow(0.001, dt * 4);
     if (this.borderFlash < 0.002) this.borderFlash = 0;
     this.aberration *= Math.pow(0.001, dt * 6);
@@ -1163,7 +1167,8 @@ function frame(ts){
   }
 
   updateVisuals(t, dt);
-  FX.update(dt, G.state === 'paused');
+  const slowTarget = (G.effect && G.effect.type === 'slow') ? CFG.slowFactor : 1;
+  FX.update(dt, G.state === 'paused', slowTarget);
   snakeUniforms.uSnakeTime.value = FX.t;
   if (controls) controls.update();
 
