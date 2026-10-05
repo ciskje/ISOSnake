@@ -32,12 +32,12 @@ Built with [Three.js](https://threejs.org): no build step, no assets, no depende
 The whole game is a single file — pick whatever suits you:
 
 - **Direct download** (single file, ~55 KB):
-  [`index.html`](https://github.com/OWNER/REPO/raw/HEAD/index.html) → save it and double-click it in any modern browser.
+  [`index.html`](https://github.com/ciskje/ISOSnake/raw/main/index.html) → save it and double-click it in any modern browser.
 - **Whole repository as ZIP**:
-  [`archive/refs/heads/main.zip`](https://github.com/OWNER/REPO/archive/refs/heads/main.zip)
+  [`archive/refs/heads/main.zip`](https://github.com/ciskje/ISOSnake/archive/refs/heads/main.zip)
 - **Git clone**:
   ```bash
-  git clone https://github.com/OWNER/REPO.git
+  git clone https://github.com/ciskje/ISOSnake.git
   ```
 - **Or just open it on GitHub Pages** if the repo has Pages enabled.
 
