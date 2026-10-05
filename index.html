@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v2.1</title>
+<title>ISO SNAKE v2.2</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v2.1</div>
+    <div class="subtitle">neon isometric snake · 3D · v2.2</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -186,7 +186,7 @@ import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
-/* version: 2.1 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 2.2 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -266,6 +266,21 @@ scene.add(glowLight);
 
 /* floor + grid + neon border */
 const half = CFG.grid / 2;
+
+/* fit the camera to the viewport: on tall screens (phones) the board must stay fully visible */
+const _isoDir = CFG.iso.clone().normalize();
+function fitCamera() {
+  const vFov = THREE.MathUtils.degToRad(42);
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+  const d = Math.min(70, Math.max(CFG.iso.length(), Math.max(
+    (half + 1.5) / Math.tan(hFov / 2),
+    (half + 1.5) * 0.8 / Math.tan(vFov / 2),
+  )));
+  camera.position.copy(_isoDir).multiplyScalar(d);
+  camera.lookAt(0, 0, 0);
+  if (controls) { controls.target.set(0, 0, 0); controls.update(); }
+}
+fitCamera();
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(CFG.grid, CFG.grid),
   new THREE.MeshStandardMaterial({ color: 0x0b0e1a, roughness: 0.8, metalness: 0.4 })
@@ -436,6 +451,7 @@ composer.addPass(FXPass);
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  fitCamera();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
   bloom.setSize(innerWidth / 2, innerHeight / 2);   // keep bloom at half res
