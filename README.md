@@ -1,6 +1,6 @@
 # ISO SNAKE
 
-**v2.1** — a neon isometric 3D snake game in a single HTML file.
+**v2.2** — a neon isometric 3D snake game in a single HTML file.
 
 Built with [Three.js](https://threejs.org): no build step, no assets, no dependencies to install. Everything (game, shaders, audio, UI) lives in one `index.html`.
 
