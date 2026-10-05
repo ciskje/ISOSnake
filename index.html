@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v2.0</title>
+<title>ISO SNAKE v2.1</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -85,16 +85,16 @@
 
 <!-- HUD -->
 <div id="hud" class="hidden">
-  <div class="hud-box"><span class="hud-label">PUNTI</span><span id="score">0</span></div>
+  <div class="hud-box"><span class="hud-label">POINTS</span><span id="score">0</span></div>
   <div class="hud-box" id="power-chip">
     <span id="power-name"></span>
     <div id="power-bar"><div id="power-fill"></div></div>
   </div>
   <div id="hud-right" style="pointer-events:none">
-    <div class="hud-box"><span class="hud-label">LIV</span><span id="level">1</span></div>
+    <div class="hud-box"><span class="hud-label">LVL</span><span id="level">1</span></div>
     <button class="ibtn" id="btn-help" title="Help (H)">?</button>
     <button class="ibtn" id="btn-mute" title="Audio (M)">&#128266;</button>
-    <button class="ibtn" id="btn-pause" title="Pausa (P)">&#10074;&#10074;</button>
+    <button class="ibtn" id="btn-pause" title="Pause (P)">&#10074;&#10074;</button>
   </div>
 </div>
 
@@ -102,30 +102,30 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">snake neon isometrico · 3D · v2.0</div>
-    <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> punti · livello <b id="menu-hil">1</b></div>
+    <div class="subtitle">neon isometric snake · 3D · v2.1</div>
+    <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
-      <button class="btn" id="btn-play">GIOCA</button>
+      <button class="btn" id="btn-play">PLAY</button>
       <button class="btn alt" id="btn-help2">HELP</button>
     </div>
     <div class="hint" id="menu-hint">
-      <span class="k">↑↓←→</span>/<span class="k">WASD</span> muovi &nbsp;·&nbsp;
-      <span class="k">P</span> pausa &nbsp;·&nbsp; <span class="k">H</span> help &nbsp;·&nbsp;
-      <span class="k">M</span> audio &nbsp;·&nbsp; <span class="k">drag</span> orbita camera<br/>
-      <b style="color:var(--cyan)">Touch:</b> swipe per muoverti · tap per iniziare
+      <span class="k">↑↓←→</span>/<span class="k">WASD</span> move &nbsp;·&nbsp;
+      <span class="k">P</span> pause &nbsp;·&nbsp; <span class="k">H</span> help &nbsp;·&nbsp;
+      <span class="k">M</span> audio &nbsp;·&nbsp; <span class="k">drag</span> to orbit camera<br/>
+      <b style="color:var(--cyan)">Touch:</b> swipe to move · tap to start
     </div>
   </div>
 </div>
 
-<!-- PAUSA -->
+<!-- PAUSED -->
 <div id="pause" class="overlay hidden">
   <div class="panel">
-    <div class="title" style="font-size:30px">PAUSA</div>
+    <div class="title" style="font-size:30px">PAUSED</div>
     <div class="btnrow">
-      <button class="btn" id="btn-resume">RIPRENDI</button>
+      <button class="btn" id="btn-resume">RESUME</button>
       <button class="btn alt" id="btn-pause-menu">MENU</button>
     </div>
-    <div class="hint"><span class="k">P</span>/<span class="k">Esc</span> riprendi</div>
+    <div class="hint"><span class="k">P</span>/<span class="k">Esc</span> resume</div>
   </div>
 </div>
 
@@ -133,14 +133,14 @@
 <div id="gameover" class="overlay hidden">
   <div class="panel">
     <div class="title" style="font-size:30px; color:var(--magenta); text-shadow:0 0 18px rgba(255,46,196,.7)">GAME OVER</div>
-    <div class="stat">PUNTI <b id="go-score">0</b> &nbsp;·&nbsp; LIVELLO <b id="go-level">1</b></div>
-    <div class="stat">RECORD <b id="go-hi">0</b> punti</div>
+    <div class="stat">POINTS <b id="go-score">0</b> &nbsp;·&nbsp; LEVEL <b id="go-level">1</b></div>
+    <div class="stat">RECORD <b id="go-hi">0</b> points</div>
     <div class="record hidden" id="go-record">★ NUOVO RECORD ★</div>
     <div class="btnrow">
-      <button class="btn" id="btn-again">GIOCA ANCORA</button>
+      <button class="btn" id="btn-again">PLAY AGAIN</button>
       <button class="btn alt" id="btn-go-menu">MENU</button>
     </div>
-    <div class="hint"><span class="k">Enter</span> riprova</div>
+    <div class="hint"><span class="k">Enter</span> to retry</div>
   </div>
 </div>
 
@@ -148,26 +148,26 @@
 <div id="help" class="overlay hidden">
   <div class="panel">
     <h2>HELP</h2>
-    <h3>CONTROLLI</h3>
+    <h3>CONTROLS</h3>
     <ul>
-      <li><b>Muovi:</b> <span class="k">↑</span><span class="k">↓</span><span class="k">←</span><span class="k">→</span> o <span class="k">W</span><span class="k">A</span><span class="k">S</span><span class="k">D</span> — su touch: <b>swipe</b> nella direzione.</li>
-      <li><b>Pausa:</b> <span class="k">P</span> o <span class="k">Esc</span> (o pulsante ⏸).</li>
-      <li><b>Help:</b> <span class="k">H</span> o pulsante ? · <b>Audio:</b> <span class="k">M</span> · <b>Conferma:</b> <span class="k">Enter</span>.</li>
-      <li><b>Camera</b> (solo desktop): drag per ruotare, rotellina per lo zoom.</li>
+      <li><b>Move:</b> <span class="k">↑</span><span class="k">↓</span><span class="k">←</span><span class="k">→</span> or <span class="k">W</span><span class="k">A</span><span class="k">S</span><span class="k">D</span> — on touch: <b>swipe</b> in the direction.</li>
+      <li><b>Pause:</b> <span class="k">P</span> or <span class="k">Esc</span> (or the ⏸ button).</li>
+      <li><b>Help:</b> <span class="k">H</span> or the ? button · <b>Audio:</b> <span class="k">M</span> · <b>Confirm:</b> <span class="k">Enter</span>.</li>
+      <li><b>Camera</b> (desktop only): drag to rotate, scroll wheel to zoom.</li>
     </ul>
-    <h3>OBBIETTIVO</h3>
-    <p>Mangia i cristalli per crescere e fare punti. Non schiantarti con il tuo corpo o con gli ostacoli viola: con il power-up <b style="color:#66ff99">Ghost</b> li attraversi. I bordi della griglia sono <b>attraversabili</b>: esci da una parte e rientri dall'altra.</p>
+    <h3>OBJECTIVE</h3>
+    <p>Eat the crystals to grow and score points. Don't crash into your own body or the purple obstacles: with the power-up <b style="color:#66ff99">Ghost</b> you pass through them. The grid borders are <b>passable</b>: exit on one side and re-enter on the other.</p>
     <h3>POWER-UP</h3>
     <table>
-      <tr><th></th><th>Effetto</th><th>Durata</th></tr>
-      <tr><td><span class="dot" style="color:#ffc400;background:#ffc400"></span>2× Punti</td><td>Il cibo vale doppio</td><td>10 s</td></tr>
-      <tr><td><span class="dot" style="color:#22d3ee;background:#22d3ee"></span>Slow-mo</td><td>Il gioco rallenta del 35%</td><td>6 s</td></tr>
-      <tr><td><span class="dot" style="color:#66ff99;background:#66ff99"></span>Ghost</td><td>Attraversi te stessa e gli ostacoli</td><td>6 s</td></tr>
-      <tr><td><span class="dot" style="color:#ff66aa;background:#ff66aa"></span>Shrink</td><td>-3 segmenti (minimo 3)</td><td>istante</td></tr>
+      <tr><th></th><th>Effect</th><th>Duration</th></tr>
+      <tr><td><span class="dot" style="color:#ffc400;background:#ffc400"></span>2× Points</td><td>Food is worth double</td><td>10 s</td></tr>
+      <tr><td><span class="dot" style="color:#22d3ee;background:#22d3ee"></span>Slow-mo</td><td>The game slows down by 35%</td><td>6 s</td></tr>
+      <tr><td><span class="dot" style="color:#66ff99;background:#66ff99"></span>Ghost</td><td>Pass through yourself and obstacles</td><td>6 s</td></tr>
+      <tr><td><span class="dot" style="color:#ff66aa;background:#ff66aa"></span>Shrink</td><td>-3 segments (minimum 3)</td><td>instant</td></tr>
     </table>
-    <h3>LIVELLI E PUNTEGGIO</h3>
-    <p>Ogni <b>500 punti</b> sali di livello: il gioco accelera e compaiono <b>2–6 blocchi ostacolo</b> (di più dai livelli alti). Il record viene salvato sul tuo dispositivo.</p>
-    <div class="btnrow"><button class="btn" id="btn-close-help">CHIUDI</button></div>
+    <h3>LEVELS AND SCORING</h3>
+    <p>Every <b>500 points</b> you level up: the game speeds up and spawns <b>2–6 obstacle blocks</b> (more at higher levels). The record is saved on your device.</p>
+    <div class="btnrow"><button class="btn" id="btn-close-help">CLOSE</button></div>
   </div>
 </div>
 
@@ -186,18 +186,18 @@ import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
-/* version: 2.0 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 2.1 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
 const CFG = {
   grid: 20,
-  baseSpeed: 7,          // celle al secondo
+  baseSpeed: 7,          // cells per secondo
   speedPerLevel: 0.6,
   maxSpeed: 15,
   foodPoints: 10,
   levelPoints: 500,
-  powerupChance: 0.035,  // probabilità per tick (quando non ce n'è uno)
+  powerupChance: 0.035,  // probability per tick (when there isn't one yet)
   durations: { gold: 10, slow: 6, ghost: 6 },
   slowFactor: 0.65,
   minLen: 3,
@@ -245,7 +245,7 @@ if (!isTouch) {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   controls.minDistance = 12; controls.maxDistance = 55;
-  controls.maxPolarAngle = Math.PI * 0.46;   // mai sotto il pavimento
+  controls.maxPolarAngle = Math.PI * 0.46;   // stay below the floor
   controls.enablePan = false;
 }
 function resetCamera(){
@@ -264,7 +264,7 @@ const glowLight = new THREE.PointLight(0x22d3ee, 18, 45);
 glowLight.position.set(0, 9, 0);
 scene.add(glowLight);
 
-/* pavimento + griglia + bordo neon */
+/* floor + grid + neon border */
 const half = CFG.grid / 2;
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(CFG.grid, CFG.grid),
@@ -273,7 +273,7 @@ const floor = new THREE.Mesh(
 floor.rotation.x = -Math.PI / 2; floor.position.y = -0.05;
 scene.add(floor);
 
-/* pavimento shader: griglia animata + bordo + onda cibo + ripple eventi + alone testa */
+/* floor shader: animated grid + border + food wave + ripple events + head glow */
 const floorFxUniforms = {
   uTime:         { value: 0 },
   uFoodPos:      { value: new THREE.Vector2(0.5, 0.5) },
@@ -302,27 +302,27 @@ const floorFx = new THREE.Mesh(
       uniform vec3 uFoodColor, uRippleColor, uGridA, uGridB;
       void main(){
         vec3 col = vec3(0.0);
-        /* scacchiera leggera: aiuta a localizzare le celle */
+        /* subtle checkerboard: helps locate the cells */
         vec2 cellF = floor(vUv * 20.0);
         col += vec3(0.10, 0.16, 0.34) * mod(cellF.x + cellF.y, 2.0) * 0.14;
-        /* griglia AA */
+        /* anti-aliased grid */
         vec2 g = vUv * 20.0;
         vec2 dg = abs(fract(g - 0.5) - 0.5) / fwidth(g);
         float line = 1.0 - min(min(dg.x, dg.y), 1.0);
         col += uGridA * line * 0.6;
-        /* bordo che respira + flash evento */
+        /* breathing border + flash event */
         vec2 b = min(vUv, 1.0 - vUv);
         float border = 1.0 - smoothstep(0.0, 0.010, min(b.x, b.y));
         float breathe = 0.75 + 0.25 * sin(uTime * 1.6);
         col += uGridB * border * (0.7 * breathe + uBorderFlash * 1.6);
-        /* onda radiale dal cibo */
+        /* radial wave from the food */
         float dF = distance(vUv, uFoodPos);
         float wave = (sin(dF * 42.0 - uTime * 3.2) * 0.5 + 0.5) * exp(-dF * 7.0);
         col += uFoodColor * wave * 0.22;
-        /* alone sotto la testa */
+        /* glow under the head */
         float dH = distance(vUv, uHeadPos);
         col += vec3(0.10, 1.0, 0.72) * exp(-dH * dH * 240.0) * 0.16;
-        /* ripple evento (mangia / power-up / livello) */
+        /* ripple event (eat / power-up / level) */
         if (uRippleT < 1.0) {
           float dR = distance(vUv, uRipplePos);
           float ring = exp(-abs(dR - uRippleT * 0.42) * 70.0) * (1.0 - uRippleT);
@@ -336,11 +336,11 @@ const floorFx = new THREE.Mesh(
 floorFx.rotation.x = -Math.PI / 2; floorFx.position.y = 0.03;
 scene.add(floorFx);
 
-/* FX: stato condiviso degli effetti shader (pavimento ora; altri moduli arriveranno) */
+/* FX: shared state for the effect shaders (floor now; other modules to come) */
 const FX = {
   t: 0, rippleT: 1.5, borderFlash: 0,
   aberration: 0, glitch: 0,
-  timeScale: 1,   // 1 = tempo pieno, 0.65 = slow-mo (transizione morbida ~200 ms)
+  timeScale: 1,   // 1 = full speed, 0.65 = slow-mo (smooth transition ~200 ms)
   worldToUv(x, z, out){ out.set(x / CFG.grid + 0.5, 0.5 - z / CFG.grid); return out; },
   ripple(worldPos, colorHex){
     this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uRipplePos.value);
@@ -353,7 +353,7 @@ const FX = {
   foodAt(worldPos){ this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uFoodPos.value); },
   headAt(worldPos){ this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uHeadPos.value); },
   update(dt, frozen, targetScale = 1){
-    /* transizione morbida verso la scala temporale target (slow-mo) */
+    /* smooth transition toward the target time scale (slow-mo) */
     this.timeScale += (targetScale - this.timeScale) * (1 - Math.exp(-dt / 0.06));
     const sdt = dt * this.timeScale;
     if (!frozen) this.t += sdt;
@@ -373,13 +373,13 @@ const FX = {
   },
 };
 
-/* post-processing: bloom neon */
+/* post-processing: neon bloom */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.45, 0.6);
 composer.addPass(bloom);
 
-/* FXPass: aberrazione cromatica + vignetta + scanline + glitch (arcade, valori "equilibrato") */
+/* FXPass: chromatic aberration + vignette + scanlines + glitch (arcade, balanced values) */
 const FXPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null },
@@ -418,10 +418,10 @@ const FXPass = new ShaderPass({
       col.r = texture2D(tDiffuse, uv + c * ab).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * ab).b;
-      /* scanline CRT + rolling lento (linee marcate) */
+      /* CRT scanlines + slow rolling (marked lines) */
       float scanPhase = sin(uv.y * uRes.y * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
       col *= 1.0 - uScan * pow(scanPhase, 1.6);
-      /* vignetta morbida */
+      /* soft vignette */
       float vig = smoothstep(0.85, 0.25, r);
       col *= 1.0 - uVign * (1.0 - vig);
       gl_FragColor = vec4(col, 1.0);
@@ -452,7 +452,7 @@ const matHead = new THREE.MeshStandardMaterial({ color: 0x0affc2, emissive: 0x00
 const matBody = new THREE.MeshStandardMaterial({ color: 0x00e08a, emissive: 0x00b877, emissiveIntensity: 0.85, roughness: 0.35, metalness: 0.2 });
 const matEye  = new THREE.MeshStandardMaterial({ color: 0x03150f, emissive: 0x02130c, roughness: 0.2 });
 
-/* serpente iridescente: iniezione shader via onBeforeCompile (ombre, illuminazione e ghost restano intatti) */
+/* iridescent snake: shader injection via onBeforeCompile (shadow, lighting and ghost stay intact) */
 const snakeUniforms = {
   uCount:     { value: 3 },
   uSnakeTime: { value: 0 },
@@ -462,15 +462,15 @@ const IRIS_INJECT = IRIS_ANCHOR + `
 {
   float n = max(uCount, 1.0);
   float u01 = clamp(uIdx / n, 0.0, 1.0);
-  /* gradiente scorrevole verde->ciano, testa->coda */
+  /* scrolling green->cyan gradient, head->tail */
   float grad = 0.5 + 0.5 * sin((u01 * 2.0 - uSnakeTime * 0.4) * 6.28318);
   vec3 irisCyan = vec3(0.10, 0.85, 0.95);
   outgoingLight = mix(outgoingLight, outgoingLight * 0.7 + irisCyan * 0.30, grad * 0.45);
-  /* pulse di luminanza che viaggia coda->heada (forward): largo, luminoso, ~1.6 Hz */
+  /* luminance pulse traveling tail->head (forward): wide, bright, ~1.6 Hz */
   float band = fract(uSnakeTime * 1.6);
   float dBand = fract(u01 + band + 0.5) - 0.5;
   outgoingLight += vec3(0.40, 1.0, 0.90) * exp(-(dBand * dBand) * 320.0) * 0.95;
-  /* shimmer leggermente più intenso sulla testa */
+  /* shimmer slightly stronger on the head */
   float headF = smoothstep(0.5, 0.0, u01);
   outgoingLight += vec3(0.30, 1.0, 0.80) * (0.05 + 0.05 * sin(uSnakeTime * 5.0)) * headF;
 }`;
@@ -504,7 +504,7 @@ function makeSnakeMatInst(base){
 const matFood = new THREE.MeshStandardMaterial({ color: 0xff44dd, emissive: 0xff2ec4, emissiveIntensity: 1.4, roughness: 0.25 });
 const matObst = new THREE.MeshStandardMaterial({ color: 0x7b2cff, emissive: 0x5a18e0, emissiveIntensity: 0.95, roughness: 0.4 });
 const POWER_STYLE = {
-  gold:   { color: 0xffc400, name: '2× PUNTI' },
+  gold:   { color: 0xffc400, name: '2× POINTS' },
   slow:   { color: 0x22d3ee, name: 'SLOW-MO' },
   ghost:  { color: 0x66ff99, name: 'GHOST' },
   shrink: { color: 0xff66aa, name: 'SHRINK' },
@@ -536,7 +536,7 @@ function setSnakeLength(n){
   snakeUniforms.uCount.value = n;
 }
 
-/* cibo */
+/* food */
 const foodMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.38), matFood);
 foodMesh.position.y = 0.55; foodMesh.visible = false;
 scene.add(foodMesh);
@@ -568,7 +568,7 @@ function setPowerType(type){
 }
 function clearPower(){ powerGroup.visible = false; G.power = null; }
 
-/* ostacoli */
+/* obstacles */
 const obstGeo = new THREE.BoxGeometry(0.92, 1.25, 0.92);
 const obstMeshes = new Map();
 function setObstacles(cells){
@@ -647,7 +647,7 @@ function updateParticles(dt){
   }
 }
 
-/* anelli d'onda (power-up, livello) */
+/* ripple rings (power-up, level) */
 const ringPool = [];
 const ringGeoShared = new THREE.RingGeometry(0.4, 0.55, 40);
 for (let i = 0; i < 5; i++) {
@@ -701,7 +701,7 @@ function fxObstacleSpawn(cell){
   }
 }
 
-/* ============================== audio (WebAudio sintetico) ============================== */
+/* ============================== audio (synthetic WebAudio) ============================== */
 const sfx = {
   ctx: null,
   ensure(){
@@ -794,7 +794,7 @@ function setGhost(on){
 
 /* tick di gioco */
 function tick(){
-  /* direzione dalla coda */
+  /* direction from the tail */
   while (G.queue.length) {
     const d = G.queue.shift();
     if (d.x === -G.dir.x && d.y === -G.dir.y) continue;   // anti-inversione
@@ -888,7 +888,7 @@ function doGameOver(){
   G.state = 'gameover';
   const head = G.snake[0];
   const p = cellToWorld(head.x, head.y, _v); p.y = 0.6;
-  /* esplosione: la lascio giocare ~0.9 s PRIMA di coprire la scena con l'overlay */
+  /* explosion: keep playing ~0.9 s BEFORE covering the scene with the overlay */
   burst(p, 0x00ff9d, 42, 5.0, 0.9, 5, 1.5);
   burst(p, 0xff2ec4, 30, 4.0, 0.8, 5, 1.3);
   spawnRing(p, 0x00ff9d, 0.8);
@@ -906,7 +906,7 @@ function doGameOver(){
   $('go-hi').textContent = G.hi.score;
   $('go-record').classList.toggle('hidden', !isRecord);
   updateMenuHi();
-  /* mostra l'overlay solo dopo l'esplosione (e solo se si è ancora in game over) */
+  /* show the overlay only after the explosion (and only if still in game over) */
   setTimeout(() => { if (G.state === 'gameover') show('gameover'); }, 900);
 }
 
@@ -996,7 +996,7 @@ function closeHelp(){
   else                      { G.state = 'paused';  show('pause'); }
 }
 
-/* pulsanti */
+/* buttons */
 $('btn-play').onclick     = startGame;
 $('btn-again').onclick    = startGame;
 $('btn-resume').onclick   = resumeGame;
@@ -1056,7 +1056,7 @@ addEventListener('keydown', e => {
   }
 });
 
-/* touch: swipe su touch → direzione; tap → conferma */
+/* touch: swipe → direction; tap → confirm */
 let touchStart = null, touchDirDone = false;
 sceneEl.addEventListener('touchstart', e => {
   const t = e.touches[0];
@@ -1090,7 +1090,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden && G.state === 'playing') pauseGame();
 });
 
-/* touch: tap sullo sfondo dell'overlay = conferma (menu / game over) */
+/* touch: tap on the overlay background = confirm (menu / game over) */
 for (const id of ['menu', 'gameover']) {
   $(id).addEventListener('click', e => {
     if (e.target === $(id)) startGame();
@@ -1120,7 +1120,7 @@ function updateVisuals(t, dt){
     headMesh.rotation.y = Math.atan2(vd.x, vd.y);
   }
 
-  /* cibo pulsante */
+  /* pulsing food */
   if (foodMesh.visible) {
     const s = 1 + 0.16 * Math.sin(t * 4.2);
     foodMesh.scale.set(s, s, s);
@@ -1133,7 +1133,7 @@ function updateVisuals(t, dt){
       powerIcon.rotation.y = t * 2;
     }
     if (G.effect && G.effect.type === G.power.type) {
-      /* (caso raro: stesso tipo già attivo) — l'anello mostra la durata corrente */
+      /* (rare case: same type already active) — the ring shows the current duration */
     }
     const remain = G.effect && G.effect.until
       ? Math.max(0, (G.effect.until - performance.now()) / 1000) : 0;
@@ -1223,7 +1223,7 @@ function frame(ts){
   snakeUniforms.uSnakeTime.value = FX.t;
   if (controls) controls.update();
 
-  /* camera shake DOPO controls.update() (altrimenti OrbitControls lo cancella) */
+  /* camera shake AFTER controls.update() (otherwise OrbitControls cancels it) */
   if (G.shake > 0.001) {
     camera.position.x += (Math.random() - 0.5) * G.shake;
     camera.position.y += (Math.random() - 0.5) * G.shake * 0.6;
