@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v2.4</title>
+<title>ISO SNAKE v2.5</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v2.4</div>
+    <div class="subtitle">neon isometric snake · 3D · v2.5</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -186,7 +186,7 @@ import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
-/* version: 2.4 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 2.5 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -250,11 +250,23 @@ if (isTouch) {
   controls.touches.ONE = -1;                       // one finger = swipe (game), not camera
   controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; // two fingers = orbit + zoom
 }
-function resetCamera(){
-  camera.position.copy(CFG.iso);
+const half = CFG.grid / 2;
+
+/* fit the camera to the viewport: on tall screens (phones) the board must stay fully visible */
+const _isoDir = CFG.iso.clone().normalize();
+function fitCamera() {
+  const vFov = THREE.MathUtils.degToRad(42);
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+  const need = half + (isTouch ? 2.5 : 1.5);  // margin: the near board corners project bigger
+  const d = Math.min(85, Math.max(CFG.iso.length(), Math.max(
+    need / Math.tan(hFov / 2),
+    need * 0.8 / Math.tan(vFov / 2),
+  )));
+  camera.position.copy(_isoDir).multiplyScalar(d);
   camera.lookAt(0, 0, 0);
   if (controls) { controls.target.set(0, 0, 0); controls.update(); }
 }
+function resetCamera(){ fitCamera(); }
 resetCamera();
 
 /* luci */
@@ -267,23 +279,6 @@ glowLight.position.set(0, 9, 0);
 scene.add(glowLight);
 
 /* floor + grid + neon border */
-const half = CFG.grid / 2;
-
-/* fit the camera to the viewport: on tall screens (phones) the board must stay fully visible */
-const _isoDir = CFG.iso.clone().normalize();
-function fitCamera() {
-  const vFov = THREE.MathUtils.degToRad(42);
-  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
-  const need = half + (isTouch ? 4 : 1.5);  // extra margin on phones: the near board corners project bigger
-  const d = Math.min(85, Math.max(CFG.iso.length(), Math.max(
-    need * 1.1 / Math.tan(hFov / 2),
-    need * 0.8 / Math.tan(vFov / 2),
-  )));
-  camera.position.copy(_isoDir).multiplyScalar(d);
-  camera.lookAt(0, 0, 0);
-  if (controls) { controls.target.set(0, 0, 0); controls.update(); }
-}
-fitCamera();
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(CFG.grid, CFG.grid),
   new THREE.MeshStandardMaterial({ color: 0x0b0e1a, roughness: 0.8, metalness: 0.4 })
