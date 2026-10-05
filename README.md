@@ -29,6 +29,10 @@ Built with [Three.js](https://threejs.org): no build step, no assets, no depende
 | Orbit camera | drag | — |
 | Zoom | scroll wheel | — |
 
+The in-game help screen (press `H`):
+
+![ISO SNAKE help](docs/help.png)
+
 ## Download the game
 
 The whole game is a single file — pick whatever suits you:
