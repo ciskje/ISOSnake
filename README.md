@@ -4,6 +4,8 @@
 
 Built with [Three.js](https://threejs.org): no build step, no assets, no dependencies to install. Everything (game, shaders, audio, UI) lives in one `index.html`.
 
+![ISO SNAKE](docs/screenshot.png)
+
 ## Features
 
 - 🐍 Iridescent snake rendered with a custom shader injected via `onBeforeCompile` (head = one Mesh, body = one `InstancedMesh`: 2 draw calls)
@@ -39,7 +41,7 @@ The whole game is a single file — pick whatever suits you:
   ```bash
   git clone https://github.com/ciskje/ISOSnake.git
   ```
-- **Or just open it on GitHub Pages** if the repo has Pages enabled.
+- **Play instantly in the browser** (no download): [https://ciskje.github.io/ISOSnake/](https://ciskje.github.io/ISOSnake/)
 
 > The file loads Three.js from a CDN, so you need an internet connection the first time you open it (everything else is self-contained).
 
