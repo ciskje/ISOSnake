@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v2.2</title>
+<title>ISO SNAKE v2.3</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v2.2</div>
+    <div class="subtitle">neon isometric snake · 3D · v2.3</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -153,7 +153,7 @@
       <li><b>Move:</b> <span class="k">↑</span><span class="k">↓</span><span class="k">←</span><span class="k">→</span> or <span class="k">W</span><span class="k">A</span><span class="k">S</span><span class="k">D</span> — on touch: <b>swipe</b> in the direction.</li>
       <li><b>Pause:</b> <span class="k">P</span> or <span class="k">Esc</span> (or the ⏸ button).</li>
       <li><b>Help:</b> <span class="k">H</span> or the ? button · <b>Audio:</b> <span class="k">M</span> · <b>Confirm:</b> <span class="k">Enter</span>.</li>
-      <li><b>Camera</b> (desktop only): drag to rotate, scroll wheel to zoom.</li>
+      <li><b>Camera:</b> drag to rotate, scroll wheel to zoom — on touch: <b>two fingers</b> to rotate/zoom.</li>
     </ul>
     <h3>OBJECTIVE</h3>
     <p>Eat the crystals to grow and score points. Don't crash into your own body or the purple obstacles: with the power-up <b style="color:#66ff99">Ghost</b> you pass through them. The grid borders are <b>passable</b>: exit on one side and re-enter on the other.</p>
@@ -186,7 +186,7 @@ import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
-/* version: 2.2 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 2.3 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -241,12 +241,14 @@ scene.fog = new THREE.Fog(0x05060f, 42, 85);
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
 let controls = null;
-if (!isTouch) {
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true; controls.dampingFactor = 0.08;
-  controls.minDistance = 12; controls.maxDistance = 55;
-  controls.maxPolarAngle = Math.PI * 0.46;   // stay below the floor
-  controls.enablePan = false;
+controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 12; controls.maxDistance = 70;
+controls.maxPolarAngle = Math.PI * 0.46;   // stay below the floor
+controls.enablePan = false;
+if (isTouch) {
+  controls.touches.ONE = -1;                       // one finger = swipe (game), not camera
+  controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; // two fingers = orbit + zoom
 }
 function resetCamera(){
   camera.position.copy(CFG.iso);
@@ -1072,15 +1074,16 @@ addEventListener('keydown', e => {
   }
 });
 
-/* touch: swipe → direction; tap → confirm */
+/* touch: swipe → direction; tap → confirm (two fingers = camera orbit, ignored here) */
 let touchStart = null, touchDirDone = false;
 sceneEl.addEventListener('touchstart', e => {
+  if (e.touches.length > 1) { touchStart = null; return; }
   const t = e.touches[0];
   touchStart = { x: t.clientX, y: t.clientY };
   touchDirDone = false;
 }, { passive: true });
 sceneEl.addEventListener('touchmove', e => {
-  if (touchDirDone || !touchStart) return;
+  if (e.touches.length > 1 || touchDirDone || !touchStart) return;
   const t = e.touches[0];
   const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
   if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
