@@ -389,8 +389,8 @@ const domeMat = new THREE.ShaderMaterial({
       if (vWP.y < -0.05) {
         float s = -uCamPos.y / (vWP.y - uCamPos.y); // y = 0 crossing param, in [0, 1]
         vec2 q = uCamPos.xz + (vWP.xz - uCamPos.xz) * s;
-        float mx = max(abs(q.x), abs(q.z));
-        vis = smoothstep(${half} - 0.6, ${half} + 0.6, mx);
+        float mx = max(abs(q.x), abs(q.y));
+        vis = smoothstep(${half - 0.6}, ${half + 0.6}, mx);
       }
       float star = dd * step(0.965, r) * vis * (1.0 - smoothstep(0.8, 0.95, h));
       col += vec3(1.0, 1.0, 1.0) * star * 1.4;
