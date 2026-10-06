@@ -386,7 +386,7 @@ const domeMat = new THREE.ShaderMaterial({
       vec3 g = d * 300.0;
       vec3 c = floor(g);
       float r = hash(c);
-      float dd = smoothstep(0.42, 0.16, length(fract(g) - 0.5));
+      float dd = smoothstep(0.34, 0.06, length(fract(g) - 0.5));   // tighter crisper dots
       /* no stars only BEHIND the glass table: march from the camera through this
          fragment's world position P until y = 0; if that hit is inside the board
          footprint the star hides there. (vDir is NOT usable for this: it points from
@@ -398,8 +398,8 @@ const domeMat = new THREE.ShaderMaterial({
         float mx = max(abs(q.x), abs(q.y));
         vis = smoothstep(${half - 0.6}, ${half + 0.6}, mx);
       }
-      float star = dd * step(0.965, r) * vis * (1.0 - smoothstep(0.8, 0.95, h));
-      col += vec3(1.0, 1.0, 1.0) * star * 1.4;
+      float star = dd * step(0.93, r) * vis * (1.0 - smoothstep(0.8, 0.95, h));
+      col += vec3(1.0, 1.0, 1.0) * star * 0.55;   // below the 0.62 bloom threshold: bright stars caught by bloom get squared mip halos (the blocking look the user disliked), so keep them crisp instead
       float band1 = exp(-pow((h - 0.10) * 7.0, 2.0));
       float band2 = exp(-pow((h - 0.26) * 9.0, 2.0));
       float swirl = 0.5 + 0.5 * sin(d.x * 6.0 + d.z * 4.0 + uTime * 0.05);
