@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.8</title>
+<title>ISO SNAKE v3.9</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -108,7 +108,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.8</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.9</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -193,7 +193,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.8 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.9 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -225,6 +225,7 @@ const G = {
   food: null, power: null,
   obstacles: new Set(),
   effect: null,                  // { type, until }
+  pfrac: 0,                      // power countdown fraction 0..1, computed once per frame in updateHUDPower
   tickAcc: 0, tickAge: 0, last: 0,
   shake: 0, wrapFx: 0,
   muted: localStorage.getItem('isosnake.muted') === '1',
@@ -249,8 +250,7 @@ scene.background = new THREE.Color(0x05060f);
 scene.fog = new THREE.Fog(0x05060f, 42, 85);
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
-let controls = null;
-controls = new OrbitControls(camera, renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
 controls.minDistance = 12; controls.maxDistance = 90;
 controls.maxPolarAngle = Math.PI * 0.46;   // stay below the floor
@@ -273,10 +273,9 @@ function fitCamera() {
   )));
   camera.position.copy(_isoDir).multiplyScalar(d);
   camera.lookAt(0, 0, 0);
-  if (controls) { controls.target.set(0, 0, 0); controls.update(); }
+  controls.target.set(0, 0, 0); controls.update();
 }
-function resetCamera(){ fitCamera(); }
-resetCamera();
+fitCamera();
 
 /* luci */
 scene.add(new THREE.HemisphereLight(0x33415e, 0x0a0a14, 0.75));
@@ -428,8 +427,6 @@ const FX = {
   flashBorder(v = 1){ this.borderFlash = Math.max(this.borderFlash, v); },
   bumpAberration(v){ this.aberration = Math.max(this.aberration, v); },
   triggerGlitch(){ this.glitch = 1; },
-  foodAt(worldPos){ this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uFoodPos.value); },
-  headAt(worldPos){ this.worldToUv(worldPos.x, worldPos.z, floorFxUniforms.uHeadPos.value); },
   update(dt, frozen, targetScale = 1){
     /* smooth transition toward the target time scale (slow-mo) */
     this.timeScale += (targetScale - this.timeScale) * (1 - Math.exp(-dt / 0.06));
@@ -461,7 +458,6 @@ composer.addPass(bloom);
 const FXPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null },
-    uRes:   { value: new THREE.Vector2(innerWidth, innerHeight) },
     uTime:  { value: 0 },
     uAberr: { value: 0.0066 },
     uGlitch:{ value: 0 },
@@ -471,7 +467,6 @@ const FXPass = new ShaderPass({
     uGrain: { value: 0 },      // film grain multiplier, OFF until its button is on
     uGrade: { value: 0 },      // color grade block multiplier, OFF until its button is on
     uAmiga: { value: 0 },      // Amiga OCS look block (pixel snap + dither + posterize), OFF until its button is on
-    uAmigaRes: { value: new THREE.Vector2(640, 400) },   // ECS hi-res interlaced mode (the finer full-color screen games used circa 1990)
     uTable: { value: new THREE.Vector4(-1, -1, 1, 1) },   // padded uv-AABB of projected board: event FX masked to it
   },
   vertexShader: `
@@ -482,9 +477,8 @@ const FXPass = new ShaderPass({
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
-    uniform vec2 uRes;
     uniform float uTime, uAberr, uGlitch, uVign, uScan, uGrain, uScanRows, uGrade, uAmiga;
-    uniform vec2 uAmigaRes;
+    const vec2 uAmigaRes = vec2(640.0, 400.0);   // ECS hi-res interlaced screen: fixed, never resized (emulator full-screen stretch)
     uniform vec4 uTable; // padded uv-AABB of the projected board: event FX only inside
     float hash(float n){ return fract(sin(n) * 43758.5453123); }
     void main(){
@@ -555,7 +549,6 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
   applyBloomSize();   // P7: bloom RT size follows the quality tier (half res normally, third res on the low tier)
-  FXPass.uniforms.uRes.value.set(innerWidth, innerHeight);
   FXPass.uniforms.uScanRows.value = Math.max(14, Math.round(innerHeight / 8));   // P8 tune: one scanline band every 8 CSS px (full period now == one row), soft thin line kills the moire seen when bars were wide and dense
 });
 
@@ -652,16 +645,15 @@ scene.add(headMesh);
 /* P2: true reflection: flipped copy BELOW the now semi-transparent floor,
    seen through it like a glossy table (group scale.y=-1 flips winding -> DoubleSide).
    clipped to the board square so edge objects do not reflect outside the table */
-const _boardHalf = CFG.grid / 2;
 /* clip planes rebuilt per frame: each plane contains a board edge AND the camera,
    so mirrors can never project outside the floor quad's screen silhouette
    (a static x/z box clip is not enough: from a low angle the copy under the
    near edge sticks out past the table) */
 const _mirrorDefs = [ // one entry per board edge: point on edge + edge direction
-  { p: new THREE.Vector3(_boardHalf, -0.05, -_boardHalf), d: new THREE.Vector3(0, 0, 1) },
-  { p: new THREE.Vector3(-_boardHalf, -0.05, -_boardHalf), d: new THREE.Vector3(0, 0, -1) },
-  { p: new THREE.Vector3(-_boardHalf, -0.05, _boardHalf), d: new THREE.Vector3(1, 0, 0) },
-  { p: new THREE.Vector3(_boardHalf, -0.05, _boardHalf), d: new THREE.Vector3(-1, 0, 0) },
+  { p: new THREE.Vector3(half, -0.05, -half), d: new THREE.Vector3(0, 0, 1) },
+  { p: new THREE.Vector3(-half, -0.05, -half), d: new THREE.Vector3(0, 0, -1) },
+  { p: new THREE.Vector3(-half, -0.05, half), d: new THREE.Vector3(1, 0, 0) },
+  { p: new THREE.Vector3(half, -0.05, half), d: new THREE.Vector3(-1, 0, 0) },
 ];
 const _boardClip = _mirrorDefs.map(() => new THREE.Plane());
 const _mcN = new THREE.Vector3(), _mcC = new THREE.Vector3();
@@ -678,7 +670,8 @@ function updateMirrorClip(){
   }
 }
 updateMirrorClip();
-const matMirror = new THREE.MeshBasicMaterial({ color: 0x1f7a55, fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip });
+const mkMirrorMat = (color) => new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip });
+const matMirror = mkMirrorMat(0x1f7a55);
 const mirrorGroup = new THREE.Group();
 mirrorGroup.scale.y = -1; mirrorGroup.position.y = -0.1;
 const mirrorBody = new THREE.InstancedMesh(segGeo, matMirror, MAX_SNAKE);
@@ -723,7 +716,7 @@ function setSnakeLength(n){
 const foodMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.38), matFood);
 foodMesh.position.y = 0.55; foodMesh.visible = false;
 scene.add(foodMesh);
-const foodMirror = new THREE.Mesh(foodMesh.geometry, new THREE.MeshBasicMaterial({ color: 0x8a2a55, fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip }));
+const foodMirror = new THREE.Mesh(foodMesh.geometry, mkMirrorMat(0x8a2a55));
 foodMirror.renderOrder = -1; foodMirror.visible = false;
 mirrorGroup.add(foodMirror);
 
@@ -787,7 +780,7 @@ function setPowerType(type){
   powerIcon = new THREE.Mesh(geo, mat);
   powerIcon.position.y = 0.65;
   powerGroup.add(powerIcon);
-  powerMirror = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(0.35), fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip }));
+  powerMirror = new THREE.Mesh(geo, mkMirrorMat(new THREE.Color(c).multiplyScalar(0.35)));
   powerMirror.position.y = 0.65; powerMirror.renderOrder = -1;
   mirrorGroup.add(powerMirror);
   powerRingMat.uniforms.uColor.value.setHex(c);
@@ -803,7 +796,7 @@ const _obstO = new THREE.Object3D();
 const obstIM = new THREE.InstancedMesh(obstGeo, matObst, MAX_OBST);
 obstIM.frustumCulled = false; obstIM.count = 0;
 scene.add(obstIM);
-const matMirrorObst = new THREE.MeshBasicMaterial({ color: 0x3a1a60, fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip });
+const matMirrorObst = mkMirrorMat(0x3a1a60);
 const obstMirrorIM = new THREE.InstancedMesh(obstGeo, matMirrorObst, MAX_OBST);
 obstMirrorIM.frustumCulled = false; obstMirrorIM.count = 0; obstMirrorIM.renderOrder = -1;
 mirrorGroup.add(obstMirrorIM);
@@ -1003,7 +996,7 @@ function spawnFood(){
   const p = cellToWorld(G.food.x, G.food.y, _v);
   foodMesh.position.set(p.x, 0.55, p.z);
   foodMesh.visible = true;
-  FX.foodAt(p);
+  FX.worldToUv(p.x, p.z, floorFxUniforms.uFoodPos.value);
 }
 function spawnPower(){
   const cells = freeCells();
@@ -1178,9 +1171,9 @@ function startGame(){
   initBoard();
   G.state = 'playing'; G.helpOpen = false;
   G._helpReturn = null;
-  hideOverlays();
+  show(null);
   $('hud').classList.remove('hidden');
-  resetCamera();
+  fitCamera();
 }
 function toMenu(){
   sfx.ui();
@@ -1198,15 +1191,12 @@ function pauseGame(){
 function resumeGame(){
   if (G.state !== 'paused') return;
   G.state = 'playing'; sfx.ui();
-  hideOverlays();
+  show(null);
 }
 
 /* ============================== UI ============================== */
 function show(id){
   for (const o of ['menu', 'pause', 'gameover', 'help']) $(o).classList.toggle('hidden', o !== id);
-}
-function hideOverlays(){
-  for (const o of ['menu', 'pause', 'gameover', 'help']) $(o).classList.add('hidden');
 }
 function updateMenuHi(){
   $('menu-hi').textContent = G.hi.score;
@@ -1232,8 +1222,7 @@ function toggleHelp(){
   G._helpReturn = G.state;                    // menu | playing | paused | gameover
   if (G.state === 'playing') G.state = 'paused';   // il gioco resta congelato sotto l'help
   G.helpOpen = true;
-  for (const o of ['menu', 'pause', 'gameover']) $(o).classList.add('hidden');
-  $('help').classList.remove('hidden');
+  show('help');
 }
 function closeHelp(){
   G.helpOpen = false;
@@ -1356,7 +1345,7 @@ function updateVisuals(t, dt){
   domeMat.uniforms.uCamPos.value.copy(camera.position);
   const active = G.state === 'playing';
   const interval = 1 / currentSpeed();
-  const f = active ? Math.min(1, G.tickAge / interval) : (G.state === 'menu' ? 1 : 1);
+  const f = active ? Math.min(1, G.tickAge / interval) : 1;
 
   const n = Math.min(G.snake.length, bodyMesh.count + 1);
   for (let i = 0; i < n; i++) {
@@ -1367,7 +1356,7 @@ function updateVisuals(t, dt){
     const y = prv.y + (wrapped ? dy : dy * f);
     const p = cellToWorld(x, y, _v);
     _ribX[i] = p.x; _ribZ[i] = p.z;
-    if (i === 0) { headMesh.position.set(p.x, 0.45, p.z); FX.headAt(p); }
+    if (i === 0) { headMesh.position.set(p.x, 0.45, p.z); FX.worldToUv(p.x, p.z, floorFxUniforms.uHeadPos.value); }
     else {
       const s = 1 - 0.25 * (i / n);
       _m4.makeTranslation(p.x, 0.45 * s, p.z);
@@ -1452,13 +1441,7 @@ function updateVisuals(t, dt){
         powerMirror.visible = true;
       }
     }
-    if (G.effect && G.effect.type === G.power.type) {
-      /* (rare case: same type already active) — the ring shows the current duration */
-    }
-    const remain = G.effect && G.effect.until
-      ? Math.max(0, (G.effect.until - performance.now()) / 1000) : 0;
-    const total = G.effect ? CFG.durations[G.effect.type] || 6 : 6;
-    const frac = total ? Math.max(0, Math.min(1, remain / total)) : 0;
+    const frac = G.pfrac;   // computed once per frame in updateHUDPower
     powerRingMat.uniforms.uArc.value = frac;
     const rs = 0.8 + 0.3 * (frac || 0.8);
     powerRing.scale.set(rs, rs, 1);
@@ -1477,17 +1460,20 @@ function updateVisuals(t, dt){
 
 function updateHUDPower(now){
   const chip = $('power-chip');
+  G.pfrac = 0;
   if (G.effect) {
     const remain = Math.max(0, (G.effect.until - now) / 1000);
     if (remain <= 0) { expireEffect(); }
     if (G.effect) {
       chip.classList.remove('hidden');
       const style = POWER_STYLE[G.effect.type];
+      const cssCol = '#' + style.color.toString(16).padStart(6, '0');
       $('power-name').textContent = style.name;
-      $('power-name').style.color = '#' + style.color.toString(16).padStart(6, '0');
+      $('power-name').style.color = cssCol;
       const total = CFG.durations[G.effect.type] || 6;
-      $('power-fill').style.width = (100 * remain / total) + '%';
-      $('power-fill').style.background = '#' + style.color.toString(16).padStart(6, '0');
+      G.pfrac = Math.min(1, remain / total);
+      $('power-fill').style.width = (100 * G.pfrac) + '%';
+      $('power-fill').style.background = cssCol;
       return;
     }
   }
@@ -1538,7 +1524,7 @@ function frame(ts){
   const slowTarget = (G.effect && G.effect.type === 'slow') ? CFG.slowFactor : 1;
   FX.update(dt, G.state === 'paused', slowTarget);
   snakeUniforms.uSnakeTime.value = FX.t;
-  if (controls) controls.update();
+  controls.update();
   updateMirrorClip();   // view-aligned silhouette clip for the mirror meshes
 
   /* camera shake AFTER controls.update() (otherwise OrbitControls cancels it) */

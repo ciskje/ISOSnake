@@ -78,7 +78,7 @@ index.html   ← the entire game
 AGENTS.md    ← notes/instructions for AI agents working on this repo
 README.md    ← this file
 LICENSE      ← MIT
-docs/        ← screenshots and design plans
+docs/        ← screenshots
 ```
 
 ## Licence
