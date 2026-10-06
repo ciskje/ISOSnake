@@ -633,10 +633,12 @@ function updateMirrorClip(){
   for (let i = 0; i < _mirrorDefs.length; i++) {
     const def = _mirrorDefs[i], pl = _boardClip[i];
     _mcC.subVectors(camera.position, def.p);   // in-plane vector toward camera
-    _mcN.crossVectors(def.d, _mcC).normalize(); // normal candidate
+    _mcN.crossVectors(def.d, _mcC);            // normal candidate (not yet normalized)
+    if (_mcN.lengthSq() < 1e-8) continue;      // grazing/degenerate view: keep last good planes
     if (_mcN.x * -def.p.x + _mcN.z * -def.p.z < 0) _mcN.negate(); // face board center
+    _mcN.normalize();
     pl.normal.copy(_mcN);
-    pl.constant = -_mcN.dot(def.p);
+    pl.constant = -_mcN.dot(def.p) - 0.06;     // slight inward bias: cuts borderline spill slivers
   }
 }
 updateMirrorClip();
