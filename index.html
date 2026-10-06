@@ -359,7 +359,7 @@ const domeMat = new THREE.ShaderMaterial({
   vertexShader: `
     varying vec3 vDir;
     varying vec3 vWP;
-    void main(){ vDir = normalize(position); vWP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    void main(){ vDir = normalize(position); vWP = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
   `,
   fragmentShader: `
     varying vec3 vDir;
@@ -1433,6 +1433,9 @@ function frame(ts){
     if (G.shake < 0.002) G.shake = 0;
   }
 
+  /* the dome follows the camera: shake translates only, so keeping the sky pinned to
+     the eye means eating / power-up bumps never drag the stars */
+  dome.position.copy(camera.position);
   composer.render();
 }
 
