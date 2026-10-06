@@ -355,7 +355,7 @@ scene.add(floorFx);
    vertical gradient + hash star twinkle + 2 nebula bands + horizon glow (hue ~240) */
 const domeMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, fog: false, depthWrite: false,
-  uniforms: { uTime: { value: 0 } },
+  uniforms: { uTime: { value: 0 }, uCamPos: { value: new THREE.Vector3() } },
   vertexShader: `
     varying vec3 vDir;
     void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
@@ -363,6 +363,7 @@ const domeMat = new THREE.ShaderMaterial({
   fragmentShader: `
     varying vec3 vDir;
     uniform float uTime;
+    uniform vec3 uCamPos;
     float hash(vec3 p){ p = fract(p * 0.3183099 + vec3(0.11, 0.17, 0.13)); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
     void main(){
       vec3 d = vDir;
@@ -378,7 +379,16 @@ const domeMat = new THREE.ShaderMaterial({
       vec3 c = floor(g);
       float r = hash(c);
       float dd = smoothstep(0.42, 0.16, length(fract(g) - 0.5));
-      float star = dd * step(0.972, r) * smoothstep(-0.42, -0.22, h) * (1.0 - smoothstep(0.45, 0.75, h));
+      /* keep stars out only where the ray passes through the board footprint
+         (the glass area with the reflection); everywhere else they cover the
+         whole sky including the band around the table */
+      float vis = 1.0;
+      if (d.y < -0.03) {
+        float tt = -uCamPos.y / d.y;
+        float mx = max(abs(uCamPos.x + d.x * tt), abs(uCamPos.z + d.z * tt));
+        vis = smoothstep(${half} - 0.6, ${half} + 0.6, mx);
+      }
+      float star = dd * step(0.965, r) * vis * (1.0 - smoothstep(0.8, 0.95, h));
       col += vec3(1.0, 1.0, 1.0) * star * 1.4;
       float band1 = exp(-pow((h - 0.10) * 7.0, 2.0));
       float band2 = exp(-pow((h - 0.26) * 9.0, 2.0));
@@ -594,12 +604,29 @@ scene.add(headMesh);
    seen through it like a glossy table (group scale.y=-1 flips winding -> DoubleSide).
    clipped to the board square so edge objects do not reflect outside the table */
 const _boardHalf = CFG.grid / 2;
-const _boardClip = [
-  new THREE.Plane(new THREE.Vector3(1, 0, 0), _boardHalf),
-  new THREE.Plane(new THREE.Vector3(-1, 0, 0), _boardHalf),
-  new THREE.Plane(new THREE.Vector3(0, 0, 1), _boardHalf),
-  new THREE.Plane(new THREE.Vector3(0, 0, -1), _boardHalf),
+/* clip planes rebuilt per frame: each plane contains a board edge AND the camera,
+   so mirrors can never project outside the floor quad's screen silhouette
+   (a static x/z box clip is not enough: from a low angle the copy under the
+   near edge sticks out past the table) */
+const _mirrorDefs = [ // one entry per board edge: point on edge + edge direction
+  { p: new THREE.Vector3(_boardHalf, -0.05, -_boardHalf), d: new THREE.Vector3(0, 0, 1) },
+  { p: new THREE.Vector3(-_boardHalf, -0.05, -_boardHalf), d: new THREE.Vector3(0, 0, -1) },
+  { p: new THREE.Vector3(-_boardHalf, -0.05, _boardHalf), d: new THREE.Vector3(1, 0, 0) },
+  { p: new THREE.Vector3(_boardHalf, -0.05, _boardHalf), d: new THREE.Vector3(-1, 0, 0) },
 ];
+const _boardClip = _mirrorDefs.map(() => new THREE.Plane());
+const _mcN = new THREE.Vector3(), _mcC = new THREE.Vector3();
+function updateMirrorClip(){
+  for (let i = 0; i < _mirrorDefs.length; i++) {
+    const def = _mirrorDefs[i], pl = _boardClip[i];
+    _mcC.subVectors(camera.position, def.p);   // in-plane vector toward camera
+    _mcN.crossVectors(def.d, _mcC).normalize(); // normal candidate
+    if (_mcN.x * -def.p.x + _mcN.z * -def.p.z < 0) _mcN.negate(); // face board center
+    pl.normal.copy(_mcN);
+    pl.constant = -_mcN.dot(def.p);
+  }
+}
+updateMirrorClip();
 const matMirror = new THREE.MeshBasicMaterial({ color: 0x1f7a55, fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip });
 const mirrorGroup = new THREE.Group();
 mirrorGroup.scale.y = -1; mirrorGroup.position.y = -0.1;
@@ -1220,6 +1247,7 @@ for (const id of ['menu', 'gameover']) {
 /* ============================== loop ============================== */
 function updateVisuals(t, dt){
   domeMat.uniforms.uTime.value = t;
+  domeMat.uniforms.uCamPos.value.copy(camera.position);
   const active = G.state === 'playing';
   const interval = 1 / currentSpeed();
   const f = active ? Math.min(1, G.tickAge / interval) : (G.state === 'menu' ? 1 : 1);
@@ -1390,6 +1418,7 @@ function frame(ts){
   FX.update(dt, G.state === 'paused', slowTarget);
   snakeUniforms.uSnakeTime.value = FX.t;
   if (controls) controls.update();
+  updateMirrorClip();   // view-aligned silhouette clip for the mirror meshes
 
   /* camera shake AFTER controls.update() (otherwise OrbitControls cancels it) */
   if (G.shake > 0.001) {
