@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.4</title>
+<title>ISO SNAKE v3.5</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.4</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.5</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -187,7 +187,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.4 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.5 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -447,7 +447,7 @@ const FX = {
 /* post-processing: neon bloom */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.45, 0.6);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.58, 0.52, 0.62);   // P6: tuned for the warmer highlights
 composer.addPass(bloom);
 
 /* FXPass: chromatic aberration + vignette + scanlines + glitch (arcade, balanced values) */
@@ -460,6 +460,8 @@ const FXPass = new ShaderPass({
     uGlitch:{ value: 0 },
     uVign:  { value: 0.50 },
     uScan:  { value: 0.42 },
+    uScanRows: { value: 0 },   // CRT band count across viewport height (fixed CSS-px spacing)
+    uGrain: { value: 1 },      // film grain multiplier (quality tiers scale it down)
     uTable: { value: new THREE.Vector4(-1, -1, 1, 1) },   // padded uv-AABB of projected board: event FX masked to it
   },
   vertexShader: `
@@ -471,7 +473,7 @@ const FXPass = new ShaderPass({
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
     uniform vec2 uRes;
-    uniform float uTime, uAberr, uGlitch, uVign, uScan;
+    uniform float uTime, uAberr, uGlitch, uVign, uScan, uGrain, uScanRows;
     uniform vec4 uTable; // padded uv-AABB of the projected board: event FX only inside
     float hash(float n){ return fract(sin(n) * 43758.5453123); }
     void main(){
@@ -495,9 +497,17 @@ const FXPass = new ShaderPass({
       col.r = texture2D(tDiffuse, uv + c * ab).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * ab).b;
+      /* P6 color grade: cool shadows, warm highlights, neon saturation lift */
+      float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col += vec3(-0.018, 0.002, 0.05) * (1.0 - lum);
+      col += vec3(0.028, 0.012, -0.022) * lum;
+      col = mix(vec3(lum), col, 1.14);
       /* CRT scanlines + slow rolling (marked lines) */
-      float scanPhase = sin(uv.y * uRes.y * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
+      float scanPhase = sin(uv.y * uScanRows * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
       col *= 1.0 - uScan * pow(scanPhase, 1.6);
+      /* film grain: static per-frame noise on device pixels, tier-scaled */
+      float gr = hash(dot(gl_FragCoord.xy, vec2(0.11, 0.17)) + floor(uTime * 24.0) * 7.3) - 0.5;
+      col += gr * uGrain * 0.045;
       /* soft vignette */
       float vig = smoothstep(0.85, 0.25, r);
       col *= 1.0 - uVign * (1.0 - vig);
@@ -509,6 +519,8 @@ const FXPass = new ShaderPass({
   `,
 });
 composer.addPass(FXPass);
+FXPass.uniforms.uScan.value = isTouch ? 0.2 : 0.4;            // softer scanlines on phones (fixed spacing alone still flickers at high DPR)
+FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);  // one band every ~3 CSS px, resolution-independent
 
 /* scratch corners used to project the board into screen space (FX event mask) */
 const _fxCN = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -521,6 +533,7 @@ addEventListener('resize', () => {
   composer.setSize(innerWidth, innerHeight);
   bloom.setSize(innerWidth / 2, innerHeight / 2);   // keep bloom at half res
   FXPass.uniforms.uRes.value.set(innerWidth, innerHeight);
+  FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);
 });
 
 /* ============================== mesh & materiali ============================== */
