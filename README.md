@@ -22,7 +22,7 @@ Built with [Three.js](https://threejs.org): no build step, no assets, no depende
 - 🎛 Opt-in retro FX toggles, off by default and enabled one by one (pill buttons bottom-left or keys `1`–`4`): color grade, film grain, CRT scanlines, and an authentic Amiga-era look (640×400 hi-res interlace + HAM 4096-color posterize)
 - 🔊 Fully synthetic audio (WebAudio, no sound files)
 - 📱 Touch support: swipe to steer, tap to start; desktop: arrow keys / WASD + orbit camera
-- ⚡ Low input latency: instant head feedback on key press, zero-allocation hot paths, three-level quality tiers that downgrade under strain and gently recover after ~10 s of healthy frames
+- ⚡ Low input latency: smooth interpolated head turning, zero-allocation hot paths, three-level quality tiers that downgrade under strain and gently recover after ~10 s of healthy frames
 - 🎊 Power-ups: 2× points, slow-mo, ghost, shrink — with HUD ring countdown (now an animated sweep arc)
 - 🏆 Faster pacing: level up every 300 points (+100 each next level), local high-score saved on your device
 
