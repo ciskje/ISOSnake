@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v2.5</title>
+<title>ISO SNAKE v3.0</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v2.5</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.0</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -166,7 +166,7 @@
       <tr><td><span class="dot" style="color:#ff66aa;background:#ff66aa"></span>Shrink</td><td>-3 segments (minimum 3)</td><td>instant</td></tr>
     </table>
     <h3>LEVELS AND SCORING</h3>
-    <p>Every <b>500 points</b> you level up: the game speeds up and spawns <b>2–6 obstacle blocks</b> (more at higher levels). The record is saved on your device.</p>
+    <p>Every <b>300 points</b> you level up (each next level costs +100): the game speeds up and spawns <b>3–6 obstacle blocks</b> (more at higher levels). The record is saved on your device.</p>
     <div class="btnrow"><button class="btn" id="btn-close-help">CLOSE</button></div>
   </div>
 </div>
@@ -186,7 +186,7 @@ import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
-/* version: 2.5 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.0 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -196,7 +196,7 @@ const CFG = {
   speedPerLevel: 0.6,
   maxSpeed: 15,
   foodPoints: 10,
-  levelPoints: 500,
+  levelPoints: 300,        // next level costs levelPoints + (level-1)*100
   powerupChance: 0.035,  // probability per tick (when there isn't one yet)
   durations: { gold: 10, slow: 6, ghost: 6 },
   slowFactor: 0.65,
@@ -783,7 +783,7 @@ function spawnPower(){
   powerGroup.visible = true;
 }
 function addObstacles(){
-  const count = Math.min(6, G.level + 2);
+  const count = Math.min(6, G.level + 1);
   const cells = freeCells(3).slice();
   const picked = [];
   for (let i = 0; i < count && cells.length; i++) {
@@ -857,7 +857,7 @@ function tick(){
     bumpScore();
     setSnakeLength(G.snake.length);
     spawnFood();
-    while (G.score >= G.level * CFG.levelPoints) {
+    while (G.score >= CFG.levelPoints + (G.level - 1) * 100) {
       G.level++;
       sfx.level();
       fxLevelUp();
