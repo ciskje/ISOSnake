@@ -377,8 +377,7 @@ const domeMat = new THREE.ShaderMaterial({
       vec3 c = floor(g);
       float r = hash(c);
       float dd = smoothstep(0.42, 0.16, length(fract(g) - 0.5));
-      float tw = 0.5 + 0.5 * sin(uTime * (1.0 + r * 4.0) + r * 40.0);
-      float star = dd * step(0.986, r) * tw;
+      float star = dd * step(0.986, r) * smoothstep(-0.35, -0.15, h);
       col += vec3(1.0, 1.0, 1.0) * star * 1.4;
       float band1 = exp(-pow((h - 0.10) * 7.0, 2.0));
       float band2 = exp(-pow((h - 0.26) * 9.0, 2.0));
@@ -592,7 +591,7 @@ scene.add(headMesh);
 
 /* P2: true reflection: flipped copy BELOW the now semi-transparent floor,
    seen through it like a glossy table (group scale.y=-1 flips winding -> DoubleSide) */
-const matMirror = new THREE.MeshBasicMaterial({ color: 0x54ffaa, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, fog: false, depthWrite: false, side: THREE.DoubleSide });
+const matMirror = new THREE.MeshBasicMaterial({ color: 0x1f7a55, fog: false, side: THREE.DoubleSide });
 const mirrorGroup = new THREE.Group();
 mirrorGroup.scale.y = -1; mirrorGroup.position.y = -0.1;
 const mirrorBody = new THREE.InstancedMesh(segGeo, matMirror, MAX_SNAKE);
@@ -637,7 +636,7 @@ function setSnakeLength(n){
 const foodMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.38), matFood);
 foodMesh.position.y = 0.55; foodMesh.visible = false;
 scene.add(foodMesh);
-const foodMirror = new THREE.Mesh(foodMesh.geometry, new THREE.MeshBasicMaterial({ color: 0xff2ec4, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, fog: false, depthWrite: false }));
+const foodMirror = new THREE.Mesh(foodMesh.geometry, new THREE.MeshBasicMaterial({ color: 0x8a2a55, fog: false, side: THREE.DoubleSide }));
 foodMirror.renderOrder = -1; foodMirror.visible = false;
 mirrorGroup.add(foodMirror);
 
@@ -666,7 +665,7 @@ function setPowerType(type){
   powerIcon = new THREE.Mesh(geo, mat);
   powerIcon.position.y = 0.65;
   powerGroup.add(powerIcon);
-  powerMirror = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, fog: false, depthWrite: false }));
+  powerMirror = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(0.35), fog: false, side: THREE.DoubleSide }));
   powerMirror.position.y = 0.65; powerMirror.renderOrder = -1;
   mirrorGroup.add(powerMirror);
   powerRingMat.color.setHex(c);
@@ -677,7 +676,7 @@ function clearPower(){ powerGroup.visible = false; G.power = null; }
 const obstGeo = new THREE.BoxGeometry(0.92, 1.25, 0.92);
 const obstMeshes = new Map();
 const obstMirrors = new Map();
-const matMirrorObst = new THREE.MeshBasicMaterial({ color: 0x5a18e0, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, fog: false, depthWrite: false });
+const matMirrorObst = new THREE.MeshBasicMaterial({ color: 0x3a1a60, fog: false, side: THREE.DoubleSide });
 function setObstacles(cells){
   for (const [k, m] of obstMeshes) { scene.remove(m); obstMeshes.delete(k); }
   for (const [k, m] of obstMirrors) { mirrorGroup.remove(m); obstMirrors.delete(k); }
