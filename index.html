@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.7</title>
+<title>ISO SNAKE v3.8</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -108,7 +108,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.7</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.8</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -193,7 +193,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.7 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.8 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -229,13 +229,14 @@ const G = {
   shake: 0, wrapFx: 0,
   muted: localStorage.getItem('isosnake.muted') === '1',
   hi: JSON.parse(localStorage.getItem('isosnake.highscore.v1') || '{"score":0,"level":1}'),
-  particleScale: 1, fpsAcc: 0, fpsN: 0, slowWindows: 0, quality: 1,
+  particleScale: 1, fpsAcc: 0, fpsN: 0, slowWindows: 0, fastWindows: 0, quality: 1,
 };
 
 /* ============================== three ============================== */
 const sceneEl = $('scene');
 const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1 : 1.5));
+const BASE_PR = Math.min(devicePixelRatio, isTouch ? 1 : 1.5);   // P7: captured once so setQuality can restore the full tier exactly
+renderer.setPixelRatio(BASE_PR);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -552,7 +553,7 @@ addEventListener('resize', () => {
   fitCamera();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
-  bloom.setSize(innerWidth / 2, innerHeight / 2);   // keep bloom at half res
+  applyBloomSize();   // P7: bloom RT size follows the quality tier (half res normally, third res on the low tier)
   FXPass.uniforms.uRes.value.set(innerWidth, innerHeight);
   FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);
 });
@@ -1522,16 +1523,13 @@ function frame(ts){
 
   if (G.state === 'playing' || G.state === 'paused') updateHUDPower(now);
 
-  /* adaptive quality: if FPS stays low, downgrade step by step */
+  /* P7 adaptive quality: slow windows downgrade one tier, healthy windows upgrade gently after ~10 s */
   G.fpsAcc += dt; G.fpsN++;
   if (G.fpsAcc >= 2) {
     const avg = G.fpsAcc / G.fpsN;
-    if (avg > 0.02) G.slowWindows++; else G.slowWindows = 0;
-    if (G.slowWindows >= 2) {
-      if (G.particleScale > 0.5) G.particleScale = 0.5;
-      else if (G.quality > 0.75) { G.quality = 0.75; composer.setPixelRatio(0.75); }
-      G.slowWindows = 0;
-    }
+    if (avg > 0.02) { G.slowWindows++; G.fastWindows = 0; } else { G.slowWindows = 0; G.fastWindows++; }
+    if (G.slowWindows >= 2 && G.quality > 0.55) { setQuality(G.quality === 1 ? 0.75 : 0.55); G.slowWindows = 0; }   // downgrade step by step (~4 s of slow windows)
+    else if (G.fastWindows >= 5 && G.quality < 1) { setQuality(G.quality === 0.55 ? 0.75 : 1); G.fastWindows = 0; }   // gentle upgrade back one tier after ~10 s of healthy frames
     G.fpsAcc = 0; G.fpsN = 0;
   }
 
@@ -1575,10 +1573,23 @@ function frame(ts){
 /* P6 post-processing effects start OFF and are enabled one-by-one (buttons + keys 1/2/3) */
 const FxState = { grade: false, grain: false, scan: false, amiga: false };
 const _fxBtns = {};
+function applyBloomSize(){ const f = G.quality <= 0.55 ? 3 : 2; bloom.setSize(Math.round(innerWidth / f), Math.round(innerHeight / f)); }   // P7: third-res bloom only on the low tier
+function setQuality(q){
+  /* P7 quality tiers: 1 full | 0.75 mid (smaller render scale, half particles, no mirror) | 0.55 low (also no ribbon/grain/scanlines, bloom third-res) */
+  if (q !== 1 && q !== 0.75 && q !== 0.55) return;
+  if (G.quality === q) return;
+  G.quality = q;
+  composer.setPixelRatio(q >= 1 ? BASE_PR : q);   // absolute ratio: restoring full must put back the exact startup value
+  G.particleScale = q >= 1 ? 1 : 0.5;
+  mirrorGroup.visible = q >= 1;                    // plan: reflection only on the full tier
+  ribbon.visible = q > 0.55;
+  applyBloomSize();
+  applyFx();                                       // re-evaluate grain/scan gates for the new tier
+}
 function applyFx(){
   FXPass.uniforms.uGrade.value = FxState.grade ? 1 : 0;
-  FXPass.uniforms.uGrain.value = FxState.grain ? 1 : 0;
-  FXPass.uniforms.uScan.value = FxState.scan ? FxBASE_SCAN : 0;
+  FXPass.uniforms.uGrain.value = (FxState.grain && G.quality > 0.55) ? 1 : 0;              // low tier forces grain off even if toggled
+  FXPass.uniforms.uScan.value = (FxState.scan && G.quality > 0.55) ? FxBASE_SCAN : 0;      // ditto scanlines
   FXPass.uniforms.uAmiga.value = FxState.amiga ? 1 : 0;
 }
 function refreshFxLabels(){ for (const k of ['grade', 'grain', 'scan', 'amiga']) _fxBtns[k].textContent = ({ grade: '1 ', grain: '2 ', scan: '3 ', amiga: '4 '}[k]) + k.toUpperCase() + (FxState[k] ? ' on' : ' off'); }
@@ -1595,7 +1606,7 @@ function buildFxControls(){
   document.body.appendChild(wrap);
   refreshFxLabels();
 }
-applyFx(); buildFxControls();
+applyFx(); buildFxControls(); applyBloomSize();   // P7: sync bloom RT size with the initial tier right away, not only on first resize
 
 sfx.ensure();   // audio context once, not in the keydown hot path
 initBoard();
