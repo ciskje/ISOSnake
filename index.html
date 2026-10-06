@@ -282,7 +282,7 @@ scene.add(glowLight);
 /* floor + grid + neon border */
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(CFG.grid, CFG.grid),
-  new THREE.MeshStandardMaterial({ color: 0x0b0e1a, roughness: 0.8, metalness: 0.4, transparent: true, opacity: 0.72 })
+  new THREE.MeshStandardMaterial({ color: 0x0b0e1a, roughness: 0.8, metalness: 0.4, transparent: true, opacity: 0.82 })
 );
 floor.rotation.x = -Math.PI / 2; floor.position.y = -0.05;
 scene.add(floor);
@@ -549,12 +549,16 @@ scene.add(headMesh);
 
 /* P2: true reflection: flipped copy BELOW the now semi-transparent floor,
    seen through it like a glossy table (group scale.y=-1 flips winding -> DoubleSide) */
-const matMirror = new THREE.MeshBasicMaterial({ color: 0x54ffaa, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, fog: false, depthWrite: false, side: THREE.DoubleSide });
+const matMirror = new THREE.MeshBasicMaterial({ color: 0x54ffaa, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, fog: false, depthWrite: false, side: THREE.DoubleSide });
 const mirrorGroup = new THREE.Group();
 mirrorGroup.scale.y = -1; mirrorGroup.position.y = -0.1;
 const mirrorBody = new THREE.InstancedMesh(segGeo, matMirror, MAX_SNAKE);
 mirrorBody.frustumCulled = false; mirrorBody.count = 0;
 const mirrorHead = new THREE.Mesh(headGeo, matMirror);
+/* renderOrder -1: the mirror must ALWAYS draw before the transparent floor,
+   otherwise near-side instances sort after it and get depth-culled (the
+   disappearing head reflection bug) */
+mirrorBody.renderOrder = -1; mirrorHead.renderOrder = -1;
 mirrorGroup.add(mirrorBody, mirrorHead);
 scene.add(mirrorGroup);
 
