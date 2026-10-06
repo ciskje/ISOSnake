@@ -524,9 +524,10 @@ const FXPass = new ShaderPass({
         float haml = dot(hamq, vec3(0.2126, 0.7152, 0.0722));
         col = mix(col, hamq, smoothstep(0.18, 0.3, haml) * (1.0 - msk));   // also masked OUT inside the projected board quad (uTable): the per-cell glass tints there must not get amplified into a chessboard; real Amiga games kept sprites crisp on stepped backgrounds anyway
       }
-      /* CRT scanlines + slow rolling (marked lines) */
-      float scanPhase = sin(uv.y * uScanRows * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
-      col *= 1.0 - uScan * pow(scanPhase, 1.6);
+      /* CRT scanlines + slow rolling - one narrow SOFT line per uScanRows bands (full sin period), thin dark fraction instead of pow() comb bars which read as dense moire when composited at non-integer raster scales */
+      float scanPhase = sin(uv.y * uScanRows * 6.28318 + uTime * 0.7) * 0.5 + 0.5;
+      float sl = smoothstep(0.45, 0.95, scanPhase);   // narrow soft-edged dark line inside each band
+      col *= 1.0 - uScan * sl;
       /* film grain: static per-frame noise on device pixels, tier-scaled */
       float gr = hash(dot(gl_FragCoord.xy, vec2(0.11, 0.17)) + floor(uTime * 24.0) * 7.3) - 0.5;
       col += gr * uGrain * 0.045;
@@ -542,7 +543,7 @@ const FXPass = new ShaderPass({
 });
 composer.addPass(FXPass);
 const FxBASE_SCAN = isTouch ? 0.2 : 0.4;   // full strength when the scanline toggle is ON
-FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);
+FXPass.uniforms.uScanRows.value = Math.max(14, Math.round(innerHeight / 8));   // P8 tune: one scanline band every 8 CSS px (full period now == one row), soft thin line kills the moire seen when bars were wide and dense
 
 /* scratch corners used to project the board into screen space (FX event mask) */
 const _fxCN = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -555,7 +556,7 @@ addEventListener('resize', () => {
   composer.setSize(innerWidth, innerHeight);
   applyBloomSize();   // P7: bloom RT size follows the quality tier (half res normally, third res on the low tier)
   FXPass.uniforms.uRes.value.set(innerWidth, innerHeight);
-  FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);
+  FXPass.uniforms.uScanRows.value = Math.max(14, Math.round(innerHeight / 8));   // P8 tune: one scanline band every 8 CSS px (full period now == one row), soft thin line kills the moire seen when bars were wide and dense
 });
 
 /* ============================== mesh & materiali ============================== */
