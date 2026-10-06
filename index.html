@@ -282,7 +282,7 @@ scene.add(glowLight);
 /* floor + grid + neon border */
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(CFG.grid, CFG.grid),
-  new THREE.MeshStandardMaterial({ color: 0x0b0e1a, roughness: 0.8, metalness: 0.4 })
+  new THREE.MeshStandardMaterial({ color: 0x0b0e1a, roughness: 0.8, metalness: 0.4, transparent: true, opacity: 0.72 })
 );
 floor.rotation.x = -Math.PI / 2; floor.position.y = -0.05;
 scene.add(floor);
@@ -547,14 +547,16 @@ headMesh.position.y = 0.45;
 }
 scene.add(headMesh);
 
-/* P2: fake floor reflection: flattened dim copy painted just above the floor
-   (a true below-floor copy would never be visible through the opaque floor) */
-const matMirror = new THREE.MeshBasicMaterial({ color: 0x54ffaa, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, fog: false, depthWrite: false });
+/* P2: true reflection: flipped copy BELOW the now semi-transparent floor,
+   seen through it like a glossy table (group scale.y=-1 flips winding -> DoubleSide) */
+const matMirror = new THREE.MeshBasicMaterial({ color: 0x54ffaa, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, fog: false, depthWrite: false, side: THREE.DoubleSide });
+const mirrorGroup = new THREE.Group();
+mirrorGroup.scale.y = -1; mirrorGroup.position.y = -0.1;
 const mirrorBody = new THREE.InstancedMesh(segGeo, matMirror, MAX_SNAKE);
 mirrorBody.frustumCulled = false; mirrorBody.count = 0;
 const mirrorHead = new THREE.Mesh(headGeo, matMirror);
-mirrorHead.scale.set(1.25, 0.4, 1.25);
-scene.add(mirrorBody, mirrorHead);
+mirrorGroup.add(mirrorBody, mirrorHead);
+scene.add(mirrorGroup);
 
 /* P2: ribbon trail: glowing strip on the floor, head-bright to tail-dark,
    zero-width vertices break the strip at wrap jumps */
@@ -1166,8 +1168,6 @@ function updateVisuals(t, dt){
       _m4.makeTranslation(p.x, 0.45 * s, p.z);
       _m4.elements[0] = s; _m4.elements[5] = s; _m4.elements[10] = s;
       bodyMesh.setMatrixAt(i - 1, _m4);
-      _m4.makeTranslation(p.x, 0.045 + 0.43 * 0.4 * s, p.z);
-      _m4.elements[0] = s * 1.25; _m4.elements[5] = s * 0.4; _m4.elements[10] = s * 1.25;
       mirrorBody.setMatrixAt(i - 1, _m4);
     }
   }
@@ -1181,7 +1181,7 @@ function updateVisuals(t, dt){
   }
 
   /* P2: mirror head follows the real head */
-  mirrorHead.position.set(headMesh.position.x, 0.045 + 0.46 * 0.4, headMesh.position.z);
+  mirrorHead.position.set(headMesh.position.x, 0.45, headMesh.position.z);
   mirrorHead.rotation.y = headMesh.rotation.y;
 
   /* P2: ribbon trail (zero-width at wrap jumps breaks the strip) */
