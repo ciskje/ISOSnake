@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.9</title>
+<title>ISO SNAKE v3.10</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -108,7 +108,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.9</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.10</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -141,7 +141,7 @@
     <div class="title" style="font-size:30px; color:var(--magenta); text-shadow:0 0 18px rgba(255,46,196,.7)">GAME OVER</div>
     <div class="stat">POINTS <b id="go-score">0</b> &nbsp;·&nbsp; LEVEL <b id="go-level">1</b></div>
     <div class="stat">RECORD <b id="go-hi">0</b> points</div>
-    <div class="record hidden" id="go-record">★ NUOVO RECORD ★</div>
+    <div class="record hidden" id="go-record">★ NEW RECORD ★</div>
     <div class="btnrow">
       <button class="btn" id="btn-again">PLAY AGAIN</button>
       <button class="btn alt" id="btn-go-menu">MENU</button>
@@ -193,13 +193,13 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.9 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.10 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
 const CFG = {
   grid: 20,
-  baseSpeed: 7,          // cells per secondo
+  baseSpeed: 7,          // cells per second
   speedPerLevel: 0.6,
   maxSpeed: 15,
   foodPoints: 10,
@@ -209,7 +209,7 @@ const CFG = {
   slowFactor: 0.65,
   minLen: 3,
   particles: 512,
-  iso: new THREE.Vector3(1.4, 25.19, 16.36),   // vista default fissata dall'utente: azimut ~5°, elevazione ~57°, distanza ~30
+  iso: new THREE.Vector3(1.4, 25.19, 16.36),   // user-locked default view: azimuth ~5°, elevation ~57°, distance ~30
 };
 const isTouch = (matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
 const key = (x, y) => (x << 5) | y;   // numeric key: no string alloc in hot paths
@@ -277,7 +277,7 @@ function fitCamera() {
 }
 fitCamera();
 
-/* luci */
+/* lights */
 scene.add(new THREE.HemisphereLight(0x33415e, 0x0a0a14, 0.75));
 const sun = new THREE.DirectionalLight(0x93b4ff, 1.15);
 sun.position.set(12, 18, 8);
@@ -489,14 +489,14 @@ const FXPass = new ShaderPass({
       float sx = smoothstep(uTable.x, uTable.x + 0.06, uv.x) * (1.0 - smoothstep(uTable.z - 0.06, uTable.z, uv.x));
       float sy = smoothstep(uTable.y, uTable.y + 0.06, uv.y) * (1.0 - smoothstep(uTable.w - 0.06, uTable.w, uv.y));
       float msk = sx * sy;
-      /* glitch: slice orizzontali + distorsione (no-op a 0) */
+      /* glitch: horizontal slices + distortion (no-op at 0) */
       if (uGlitch > 0.001 && msk > 0.5) {
         float row = floor(uv.y * 32.0);
         float h = hash(row + floor(uTime * 24.0) * 7.0);
         uv.x = fract(uv.x + (h - 0.5) * 0.32 * uGlitch * step(0.5, h));
         uv.y += (h - 0.5) * 0.012 * uGlitch;
       }
-      /* aberrazione cromatica radiale (base + kick evento + glitch) */
+      /* radial chromatic aberration (base + event kick + glitch) */
       float ab = (uAberr + uGlitch * 0.030) * (0.4 + r * 2.2) * msk;
       /* Amiga look: snap sampling coords to a coarse virtual screen (ECS hi-res interlace
          was 640x400 circa 1990), like an emulator full-screen stretch; uniform branch keeps OFF passthrough */
@@ -552,7 +552,7 @@ addEventListener('resize', () => {
   FXPass.uniforms.uScanRows.value = Math.max(14, Math.round(innerHeight / 8));   // P8 tune: one scanline band every 8 CSS px (full period now == one row), soft thin line kills the moire seen when bars were wide and dense
 });
 
-/* ============================== mesh & materiali ============================== */
+/* ============================== mesh & materials ============================== */
 const cellToWorld = (x, y, out) => out.set(x - half + 0.5, 0, y - half + 0.5);
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -823,7 +823,7 @@ function setObstacles(cells){
   obstIM.instanceMatrix.needsUpdate = true; obstMirrorIM.instanceMatrix.needsUpdate = true; obstRingIM.instanceMatrix.needsUpdate = true;
 }
 
-/* ============================== particellari ============================== */
+/* ============================== particles ============================== */
 const P_MAX = CFG.particles;
 const pPos  = new Float32Array(P_MAX * 3);
 const pVel  = new Float32Array(P_MAX * 3);
@@ -918,7 +918,7 @@ function updateRings(dt){
   }
 }
 
-/* effetti compositi */
+/* composite effects */
 function fxLevelUp(){
   const c = 0x22d3ee;
   FX.ripple(new THREE.Vector3(0, 0, 0), c);
@@ -969,7 +969,7 @@ const sfx = {
   ui()    { this.tone(600, null, 0.05, 'square', 0.05); },
 };
 
-/* ============================== regole ============================== */
+/* ============================== rules ============================== */
 const _occ = new Set();
 const _freeOut = [];
 function freeCells(excludeHeadRadius = 0){
@@ -1028,18 +1028,18 @@ function currentSpeed(){
   return s;
 }
 
-/* ghost on/off (sulle istanze materiali per-segmento) */
+/* ghost on/off (on the per-segment material instances) */
 function setGhost(on){
   matHeadIris.transparent = on; matHeadIris.opacity = on ? 0.42 : 1;
   matBodyInst.transparent = on; matBodyInst.opacity = on ? 0.42 : 1;
 }
 
-/* tick di gioco */
+/* game tick */
 function tick(){
   /* direction from the tail */
   while (G.queue.length) {
     const d = G.queue.shift();
-    if (d.x === -G.dir.x && d.y === -G.dir.y) continue;   // anti-inversione
+    if (d.x === -G.dir.x && d.y === -G.dir.y) continue;   // anti-reversal
     G.dir = d; break;
   }
   const head = G.snake[0];
@@ -1052,7 +1052,7 @@ function tick(){
   const eatsPower = G.power && G.power.x === nx && G.power.y === ny;
   const grow = willEat;
 
-  /* collisione corpo (escludo la coda se non cresce) */
+  /* body collision (tail excluded unless growing) */
   if (!ghost) {
     const limit = G.snake.length - (grow ? 0 : 1);
     for (let i = 0; i < limit; i++) {
@@ -1152,7 +1152,7 @@ function doGameOver(){
   setTimeout(() => { if (G.state === 'gameover') show('gameover'); }, 900);
 }
 
-/* ============================== flusso partita ============================== */
+/* ============================== game flow ============================== */
 function initBoard(){
   G.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
   G.prevSnake = G.snake.slice();
@@ -1220,7 +1220,7 @@ function toggleHelp(){
   if (G.helpOpen) { closeHelp(); return; }
   sfx.ui();
   G._helpReturn = G.state;                    // menu | playing | paused | gameover
-  if (G.state === 'playing') G.state = 'paused';   // il gioco resta congelato sotto l'help
+  if (G.state === 'playing') G.state = 'paused';   // game stays frozen under help
   G.helpOpen = true;
   show('help');
 }
@@ -1430,7 +1430,7 @@ function updateVisuals(t, dt){
       }
     }
   } else { foodMirror.visible = false; foodHalo.visible = false; }
-  /* power-up bobbing + anello countdown */
+  /* power-up bobbing + ring countdown */
   if (powerGroup.visible && G.power) {
     if (powerIcon) {
       powerIcon.position.y = 0.65 + 0.12 * Math.sin(t * 3);
@@ -1447,7 +1447,7 @@ function updateVisuals(t, dt){
     powerRing.scale.set(rs, rs, 1);
   } else if (powerMirror) powerMirror.visible = false;
 
-  /* scia wrap */
+  /* wrap trail */
   if (performance.now() < G.wrapFx && G.snake[0]) {
     const p = cellToWorld(G.snake[0].x, G.snake[0].y, _v); p.y = 0.5;
     burst(p, 0x22d3ee, 2, 0.8, 0.3, 1, 0.5);
@@ -1491,7 +1491,7 @@ function frame(ts){
   const active = G.state === 'playing' && !G.helpOpen;
 
   if (active) {
-    /* scadenza power-up */
+    /* power-up expiry */
     if (G.effect && now >= G.effect.until) expireEffect();
     /* tick */
     const interval = 1 / currentSpeed();
@@ -1556,7 +1556,7 @@ function frame(ts){
   composer.render();
 }
 
-/* ============================== avvio ============================== */
+/* ============================== startup ============================== */
 /* P6 post-processing effects start OFF and are enabled one-by-one (buttons + keys 1/2/3) */
 const FxState = { grade: false, grain: false, scan: false, amiga: false };
 const _fxBtns = {};
