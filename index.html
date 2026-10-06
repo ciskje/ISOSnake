@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.1</title>
+<title>ISO SNAKE v3.2</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.1</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.2</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -187,7 +187,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.1 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.2 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -546,8 +546,41 @@ headMesh.position.y = 0.45;
   headMesh.add(e1, e2);
 }
 scene.add(headMesh);
+
+/* P2: fake floor reflection: flattened dim copy painted just above the floor
+   (a true below-floor copy would never be visible through the opaque floor) */
+const matMirror = new THREE.MeshBasicMaterial({ color: 0x2ee27a, transparent: true, opacity: 0.18, fog: false, depthWrite: false });
+const mirrorBody = new THREE.InstancedMesh(segGeo, matMirror, MAX_SNAKE);
+mirrorBody.frustumCulled = false; mirrorBody.count = 0;
+const mirrorHead = new THREE.Mesh(headGeo, matMirror);
+mirrorHead.scale.set(1, 0.28, 1);
+scene.add(mirrorBody, mirrorHead);
+
+/* P2: ribbon trail: glowing strip on the floor, head-bright to tail-dark,
+   zero-width vertices break the strip at wrap jumps */
+const ribPos = new Float32Array(MAX_SNAKE * 6);
+const ribCol = new Float32Array(MAX_SNAKE * 6);
+const ribIdx = new Uint16Array((MAX_SNAKE - 1) * 6);
+for (let i = 0; i < MAX_SNAKE - 1; i++) {
+  const a = i * 2;
+  ribIdx[i * 6] = a; ribIdx[i * 6 + 1] = a + 1; ribIdx[i * 6 + 2] = a + 3;
+  ribIdx[i * 6 + 3] = a; ribIdx[i * 6 + 4] = a + 3; ribIdx[i * 6 + 5] = a + 2;
+}
+const ribGeo = new THREE.BufferGeometry();
+ribGeo.setAttribute('position', new THREE.BufferAttribute(ribPos, 3));
+ribGeo.setAttribute('color', new THREE.BufferAttribute(ribCol, 3));
+ribGeo.setIndex(new THREE.BufferAttribute(ribIdx, 1));
+const ribbon = new THREE.Mesh(ribGeo, new THREE.MeshBasicMaterial({
+  vertexColors: true, transparent: true, blending: THREE.AdditiveBlending,
+  depthWrite: false, fog: false, side: THREE.DoubleSide,
+}));
+ribbon.frustumCulled = false;
+scene.add(ribbon);
+const _ribX = new Float32Array(MAX_SNAKE);
+const _ribZ = new Float32Array(MAX_SNAKE);
 function setSnakeLength(n){
   bodyMesh.count = Math.max(0, n - 1);
+  mirrorBody.count = bodyMesh.count;
   snakeUniforms.uCount.value = n;
 }
 
@@ -1126,10 +1159,19 @@ function updateVisuals(t, dt){
     const x = prv.x + (wrapped ? dx : dx * f);
     const y = prv.y + (wrapped ? dy : dy * f);
     const p = cellToWorld(x, y, _v);
+    _ribX[i] = p.x; _ribZ[i] = p.z;
     if (i === 0) { headMesh.position.set(p.x, 0.45, p.z); FX.headAt(p); }
-    else { const s = 1 - 0.25 * (i / n); _m4.makeTranslation(p.x, 0.45 * s, p.z); const e = _m4.elements; e[0] = s; e[5] = s; e[10] = s; bodyMesh.setMatrixAt(i - 1, _m4); }
+    else {
+      const s = 1 - 0.25 * (i / n);
+      _m4.makeTranslation(p.x, 0.45 * s, p.z);
+      _m4.elements[0] = s; _m4.elements[5] = s; _m4.elements[10] = s;
+      bodyMesh.setMatrixAt(i - 1, _m4);
+      _m4.makeTranslation(p.x, 0.45 * s * 0.28 + 0.06, p.z);
+      _m4.elements[0] = s; _m4.elements[5] = s * 0.28; _m4.elements[10] = s;
+      mirrorBody.setMatrixAt(i - 1, _m4);
+    }
   }
-  if (n > 1) bodyMesh.instanceMatrix.needsUpdate = true;
+  if (n > 1) { bodyMesh.instanceMatrix.needsUpdate = true; mirrorBody.instanceMatrix.needsUpdate = true; }
   if (n > 0) {
     const vd = G.queue.length ? G.queue[G.queue.length - 1] : G.dir;
     const target = Math.atan2(vd.x, vd.y);
@@ -1137,6 +1179,34 @@ function updateVisuals(t, dt){
     if (diff < -Math.PI) diff += Math.PI * 2;
     headMesh.rotation.y += diff * (1 - Math.exp(-dt / 0.04));
   }
+
+  /* P2: mirror head follows the real head */
+  mirrorHead.position.set(headMesh.position.x, 0.45 * 0.28 + 0.06, headMesh.position.z);
+  mirrorHead.rotation.y = headMesh.rotation.y;
+
+  /* P2: ribbon trail (zero-width at wrap jumps breaks the strip) */
+  if (n > 1) {
+    for (let i = 0; i < n; i++) {
+      const px = _ribX[i], pz = _ribZ[i];
+      let dx, dz;
+      if (i < n - 1) { dx = _ribX[i + 1] - px; dz = _ribZ[i + 1] - pz; }
+      else { dx = px - _ribX[i - 1]; dz = pz - _ribZ[i - 1]; }
+      const len = Math.hypot(dx, dz) || 1;
+      let w = 0.3;
+      if (i > 0 && Math.hypot(px - _ribX[i - 1], pz - _ribZ[i - 1]) > 2) w = 0;
+      if (i < n - 1 && len > 2) w = 0;
+      const ox = dz / len * w, oz = -dx / len * w;
+      const j = i * 6;
+      ribPos[j] = px + ox; ribPos[j + 1] = 0.05; ribPos[j + 2] = pz + oz;
+      ribPos[j + 3] = px - ox; ribPos[j + 4] = 0.05; ribPos[j + 5] = pz - oz;
+      const fade = 0.1 + (1 - i / n) * 0.55;
+      ribCol[j] = 0.12 * fade; ribCol[j + 1] = 0.85 * fade; ribCol[j + 2] = 0.45 * fade;
+      ribCol[j + 3] = ribCol[j]; ribCol[j + 4] = ribCol[j + 1]; ribCol[j + 5] = ribCol[j + 2];
+    }
+    ribGeo.setDrawRange(0, (n - 1) * 6);
+    ribGeo.attributes.position.needsUpdate = true;
+    ribGeo.attributes.color.needsUpdate = true;
+  } else ribGeo.setDrawRange(0, 0);
 
   /* pulsing food */
   if (foodMesh.visible) {
