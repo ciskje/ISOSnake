@@ -549,7 +549,7 @@ scene.add(headMesh);
 
 /* P2: fake floor reflection: flattened dim copy painted just above the floor
    (a true below-floor copy would never be visible through the opaque floor) */
-const matMirror = new THREE.MeshBasicMaterial({ color: 0x2ee27a, transparent: true, opacity: 0.18, fog: false, depthWrite: false });
+const matMirror = new THREE.MeshBasicMaterial({ color: 0x3cf596, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, fog: false, depthWrite: false });
 const mirrorBody = new THREE.InstancedMesh(segGeo, matMirror, MAX_SNAKE);
 mirrorBody.frustumCulled = false; mirrorBody.count = 0;
 const mirrorHead = new THREE.Mesh(headGeo, matMirror);
