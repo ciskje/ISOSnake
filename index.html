@@ -1127,7 +1127,7 @@ function updateVisuals(t, dt){
     const y = prv.y + (wrapped ? dy : dy * f);
     const p = cellToWorld(x, y, _v);
     if (i === 0) { headMesh.position.set(p.x, 0.45, p.z); FX.headAt(p); }
-    else { const s = 1 - 0.25 * (i / n); _m4.makeTranslation(p.x, 0.45 * s, p.z); _m4.scale(s, s, s); bodyMesh.setMatrixAt(i - 1, _m4); }
+    else { const s = 1 - 0.25 * (i / n); _m4.makeTranslation(p.x, 0.45 * s, p.z); const e = _m4.elements; e[0] = s; e[5] = s; e[10] = s; bodyMesh.setMatrixAt(i - 1, _m4); }
   }
   if (n > 1) bodyMesh.instanceMatrix.needsUpdate = true;
   if (n > 0) {
