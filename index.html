@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.0</title>
+<title>ISO SNAKE v3.1</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.0</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.1</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -185,8 +185,9 @@ import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.0 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.1 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -464,7 +465,7 @@ const _m4 = new THREE.Matrix4();
 
 const matHead = new THREE.MeshStandardMaterial({ color: 0x0affc2, emissive: 0x00ff9d, emissiveIntensity: 1.25, roughness: 0.3, metalness: 0.2 });
 const matBody = new THREE.MeshStandardMaterial({ color: 0x00e08a, emissive: 0x00b877, emissiveIntensity: 0.85, roughness: 0.35, metalness: 0.2 });
-const matEye  = new THREE.MeshStandardMaterial({ color: 0x03150f, emissive: 0x02130c, roughness: 0.2 });
+const matEye  = new THREE.MeshStandardMaterial({ color: 0x03150f, emissive: 0x2fd98c, emissiveIntensity: 1.4, roughness: 0.2 });
 
 /* iridescent snake: shader injection via onBeforeCompile (shadow, lighting and ghost stay intact) */
 const snakeUniforms = {
@@ -525,8 +526,8 @@ const POWER_STYLE = {
 };
 
 /* snake: head = one Mesh, body = one InstancedMesh (1 draw call for the whole body) */
-const segGeo  = new THREE.BoxGeometry(0.86, 0.86, 0.86);
-const headGeo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+const segGeo  = new RoundedBoxGeometry(0.86, 0.86, 0.86, 2, 0.12);
+const headGeo = new RoundedBoxGeometry(0.92, 0.92, 0.92, 2, 0.12);
 const eyeGeo  = new THREE.SphereGeometry(0.085, 12, 12);
 const MAX_SNAKE = CFG.grid * CFG.grid;
 const aIdxArr = new Float32Array(MAX_SNAKE);
@@ -541,7 +542,7 @@ const headMesh = new THREE.Mesh(headGeo, matHeadIris);
 headMesh.position.y = 0.45;
 {
   const e1 = new THREE.Mesh(eyeGeo, matEye), e2 = e1.clone();
-  e1.position.set(-0.17, 0.13, 0.34); e2.position.set(0.17, 0.13, 0.34);
+  e1.position.set(-0.17, 0.13, 0.42); e2.position.set(0.17, 0.13, 0.42);
   headMesh.add(e1, e2);
 }
 scene.add(headMesh);
@@ -1034,8 +1035,7 @@ function queueDir(x, y){
   if (G.queue.length >= 2) return;
   const d = x === 1 ? DIR.right : x === -1 ? DIR.left : y === 1 ? DIR.down : DIR.up;
   G.queue.push(d);
-  /* istant feedback: the head faces the pending direction right away */
-  headMesh.rotation.y = Math.atan2(d.x, d.y);
+  /* head yaw is now lerped smoothly toward the pending dir in updateVisuals */
 }
 addEventListener('keydown', e => {
   if (e.repeat) return;
@@ -1127,12 +1127,15 @@ function updateVisuals(t, dt){
     const y = prv.y + (wrapped ? dy : dy * f);
     const p = cellToWorld(x, y, _v);
     if (i === 0) { headMesh.position.set(p.x, 0.45, p.z); FX.headAt(p); }
-    else { _m4.makeTranslation(p.x, 0.45, p.z); bodyMesh.setMatrixAt(i - 1, _m4); }
+    else { const s = 1 - 0.25 * (i / n); _m4.makeTranslation(p.x, 0.45 * s, p.z); _m4.scale(s, s, s); bodyMesh.setMatrixAt(i - 1, _m4); }
   }
   if (n > 1) bodyMesh.instanceMatrix.needsUpdate = true;
   if (n > 0) {
     const vd = G.queue.length ? G.queue[G.queue.length - 1] : G.dir;
-    headMesh.rotation.y = Math.atan2(vd.x, vd.y);
+    const target = Math.atan2(vd.x, vd.y);
+    let diff = (target - headMesh.rotation.y + Math.PI) % (Math.PI * 2) - Math.PI;
+    if (diff < -Math.PI) diff += Math.PI * 2;
+    headMesh.rotation.y += diff * (1 - Math.exp(-dt / 0.04));
   }
 
   /* pulsing food */
