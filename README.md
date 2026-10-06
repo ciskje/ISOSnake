@@ -4,7 +4,13 @@
 
 Built with [Three.js](https://threejs.org): no build step, no assets, no dependencies to install. Everything (game, shaders, audio, UI) lives in one `index.html`.
 
-![ISO SNAKE](docs/screenshot.png)
+**Default look — all four post-FX toggles off:**
+
+![ISO SNAKE default look](docs/fx-off.png)
+
+**All four FX toggles on (grade · grain · scanlines · Amiga look):**
+
+![ISO SNAKE with every post-FX enabled](docs/fx-all.png)
 
 ## Features
 

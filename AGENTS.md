@@ -4,7 +4,7 @@ Instructions for agents working on this project. Learned during the optimization
 
 ## The project
 
-- Single-file Three.js game: `index.html` (~1270 lines). No build step, no dependencies beyond the three.js CDN (importmap + `type="module"`).
+- Single-file Three.js game: `index.html` (~1610 lines as of v3.8). No build step, no dependencies beyond the three.js CDN (importmap + `type="module"`).
 - Grid snake (20×20), isometric 3D, neon arcade look, post-processing (bloom + custom FXPass), synthetic WebAudio, touch + keyboard + OrbitControls.
 - Git repo at the project root; commit messages in the repo's style (short, descriptive).
 
@@ -22,21 +22,22 @@ Version `X.Y` must stay in sync in **three places**:
 ## File map (line anchors drift; grep the section banners)
 
 Sections are delimited by `/* ===== name ===== */` banners:
-- `config` (~192): `CFG` — `baseSpeed: 7` (→ ~143 ms tick), `levelPoints: 500`, `grid: 20`, `powerupChance: 0.035` (per tick).
-- `state` (~211): `G` object (includes `quality`, `fpsAcc/fpsN/slowWindows`, `particleScale`).
-- `three` (~228): renderer (`antialias:false`, pixelRatio clamp `isTouch ? 1 : 1.5`, `shadowMap.enabled = false`), camera, lights (no shadow config), composer + bloom (half res) + FXPass (tonemapping/colorspace folded in, no OutputPass), resize handler (~433, calls `bloom.setSize(w/2, h/2)`).
-- `mesh & materials` (~445): iridescent snake via `onBeforeCompile`; `makeSnakeMat` (head, `uIdx` uniform, cache key `isosnake-iris-v1`) and `makeSnakeMatInst` (body, `aIdx` instanced attribute, cache key `isosnake-iris-inst-v1` — keys MUST differ). Snake = `headMesh` (Mesh + eyes) + `bodyMesh` (InstancedMesh, capacity `MAX_SNAKE = grid*grid`, `frustumCulled=false`).
-- `regles` (~730): `tick()` (~796) — grid step; `key(x,y) = (x<<5)|y` numeric; `prevSnake` reuses the old array (no per-point copies).
-- `input` (~1012): `queueDir` (~1016) uses shared `DIR` objects + instant head rotation; `keydown` uses `e.code` (`ArrowUp`/`KeyW`…), `if (e.repeat) return`.
-- `loop` (~1101): `updateVisuals` (interpolation + instanced matrices via scratch `_m4`), `frame()` (~1177) with `dt = Math.min(0.05, …)` catch-up cap, powerup spawn roll inside the tick loop, adaptive quality block.
-- `avvio` (~1238): `sfx.ensure()` once at startup (not in hot paths); `tone()` resumes a suspended ctx.
-
+- `config` (~199): `CFG` - `baseSpeed: 7` (-> ~143 ms tick), `levelPoints: 300` (threshold is now `300 + (level-1)*100`, was `level*500` from P0), `grid: 20`, `powerupChance: 0.035` (per tick).
+- `state` (~218): `G` object (includes `quality`, `fpsAcc/fpsN/slowWindows/fastWindows`, `particleScale`).
+- `three` (~235): renderer (`antialias:false`, pixelRatio clamp captured once as `const BASE_PR`, `shadowMap.enabled = false`), camera, lights, composer + bloom + FXPass (tonemapping/colorspace folded in, no OutputPass; scanlines are thin soft lines at 8 CSS px pitch), resize handler at ~551 calls `applyBloomSize()`.
+- `mesh & materiali` (~562): iridescent snake via `onBeforeCompile` (~597 head / ~610 body); `makeSnakeMat` (head, `uIdx`, cache key `isosnake-iris-v1`) and `makeSnakeMatInst` (body, `aIdx`, cache key `isosnake-iris-inst-v1` - keys MUST differ). Snake = `headMesh` + `bodyMesh` InstancedMesh (capacity `MAX_SNAKE`). Space dome, mirror group, ribbon trail and obstacle/food/power mirrors also live here.
+- extra banners now: `particellari` (~833) particle pool, `audio` (~953) synthetic WebAudio, `fluxo partita` (~1162) state machine, `UI` (~1204) HUD/menus.
+- `regole` (~979): `tick()` (~1045) grid step; `key(x,y) = (x<<5)|y` numeric; `prevSnake` reuses the old array (no per-point copies).
+- `input` (~1261): `queueDir` (~1265) shared DIR objects; `keydown` uses `e.code` (`ArrowUp`/`KeyW`...), `if (e.repeat) return`; FX keys 1-4 in the same switch.
+- `loop` (~1353): `updateVisuals` (~1354) interpolation + instanced matrices via scratch `_m4`, head yaw shortest-arc lerp; `frame()` (~1497) with `dt = Math.min(0.05, ...)` catch-up cap, powerup spawn roll inside tick loop, adaptive tier block, `updateMirrorClip()` every frame after `controls.update()`.
+- `avvio` (~1573): `sfx.ensure()` once at startup; `tone()` resumes suspended ctx; P6-P8 FX system lives here: `FxState {grade,grain,scan,amiga}`, `applyBloomSize()` (~1577), `setQuality(q)` (~1578), `applyFx()`, `buildFxControls()` (~1598) DOM pill buttons.
 ## Semantics to preserve (do NOT "optimize away")
 
 - Tick-based grid movement: no mid-cell turning; input only queues direction (max 2 queued).
 - `dt = Math.min(0.05, dt)` catch-up cap.
 - `G.prevSnake[i]` = previous position of segment i; grow case → `prevSnake` shorter, `updateVisuals` falls back with `|| cur`.
 - Power-up chance is **per tick**, not per frame.
+- Quality tiers are idempotent `setQuality(1|0.75|0.55)` calls; grain/scan uniforms MUST stay forced 0 and mirror/ribbon hidden while `G.quality <= 0.55`, even if the user toggled them on.
 
 ## Critical pitfall: accented characters
 
