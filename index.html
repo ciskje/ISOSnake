@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.3</title>
+<title>ISO SNAKE v3.4</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.3</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.4</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -187,7 +187,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.3 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.4 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -689,10 +689,45 @@ const foodMirror = new THREE.Mesh(foodMesh.geometry, new THREE.MeshBasicMaterial
 foodMirror.renderOrder = -1; foodMirror.visible = false;
 mirrorGroup.add(foodMirror);
 
+/* P5: additive halo billboard around the food (canvas radial gradient sprite, auto-faces camera) */
+let _sparkAcc = 0;
+const _haloCv = document.createElement('canvas'); _haloCv.width = _haloCv.height = 64;
+const _hctx = _haloCv.getContext('2d');
+const _hg = _hctx.createRadialGradient(32, 32, 2, 32, 32, 31);
+_hg.addColorStop(0.0, 'rgba(255,140,255,0.9)');
+_hg.addColorStop(0.45, 'rgba(255,70,220,0.3)');
+_hg.addColorStop(1.0, 'rgba(255,60,200,0)');
+_hctx.fillStyle = _hg; _hctx.fillRect(0, 0, 64, 64);
+const foodHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(_haloCv), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false }));
+foodHalo.scale.set(1.5, 1.5, 1); foodHalo.visible = false;
+scene.add(foodHalo);
+
 /* power-up */
 const powerGroup = new THREE.Group();
 scene.add(powerGroup);
-const powerRingMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+/* P5 countdown arc on the floor ring: uArc fraction of circumference drawn bright,
+   faint ghost track shows the remainder (replaces the old opacity hack) */
+const powerRingMat = new THREE.ShaderMaterial({
+  uniforms: { uColor: { value: new THREE.Color(0xffffff) }, uArc: { value: 1 } },
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+  vertexShader: `
+    varying vec2 vP;
+    void main(){ vP = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vP;
+    uniform vec3 uColor;
+    uniform float uArc;
+    void main(){
+      /* angle from top, clockwise, as a 0..1 fraction of the full circle */
+      float fracA = mod(atan(vP.x, vP.y), 6.2831853) / 6.2831853;
+      float aa = fwidth(fracA) + 0.001;
+      float mask = clamp((uArc - fracA) / aa + 0.5, 0.0, 1.0);
+      gl_FragColor = vec4(uColor * (0.22 + 1.05 * mask), 1.0);
+    }
+  `,
+});
 const powerRing = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.64, 48), powerRingMat);
 powerRing.rotation.x = -Math.PI / 2; powerRing.position.y = 0.12;
 powerGroup.add(powerRing);
@@ -717,28 +752,44 @@ function setPowerType(type){
   powerMirror = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(0.35), fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip }));
   powerMirror.position.y = 0.65; powerMirror.renderOrder = -1;
   mirrorGroup.add(powerMirror);
-  powerRingMat.color.setHex(c);
+  powerRingMat.uniforms.uColor.value.setHex(c);
 }
 function clearPower(){ powerGroup.visible = false; G.power = null; }
 
-/* obstacles */
-const obstGeo = new THREE.BoxGeometry(0.92, 1.25, 0.92);
-const obstMeshes = new Map();
-const obstMirrors = new Map();
+/* obstacles: one InstancedMesh trio (P5) - rounded silhouette + emissive pulse + base rings.
+   mirror copy reuses the same instance matrices (mirrorGroup flip does the rest),
+   opaque dim material + shared per-frame clip planes like every other mirror */
+const obstGeo = new RoundedBoxGeometry(0.92, 1.25, 0.92, 2, 0.1);
+const MAX_OBST = 64;
+const _obstO = new THREE.Object3D();
+const obstIM = new THREE.InstancedMesh(obstGeo, matObst, MAX_OBST);
+obstIM.frustumCulled = false; obstIM.count = 0;
+scene.add(obstIM);
 const matMirrorObst = new THREE.MeshBasicMaterial({ color: 0x3a1a60, fog: false, side: THREE.DoubleSide, clippingPlanes: _boardClip });
+const obstMirrorIM = new THREE.InstancedMesh(obstGeo, matMirrorObst, MAX_OBST);
+obstMirrorIM.frustumCulled = false; obstMirrorIM.count = 0; obstMirrorIM.renderOrder = -1;
+mirrorGroup.add(obstMirrorIM);
+const obstRingIM = new THREE.InstancedMesh(new THREE.RingGeometry(0.52, 0.66, 32),
+  new THREE.MeshBasicMaterial({ color: 0x8b5cff, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false, fog: false }),
+  MAX_OBST);
+obstRingIM.frustumCulled = false; obstRingIM.count = 0;
+scene.add(obstRingIM);
 function setObstacles(cells){
-  for (const [k, m] of obstMeshes) { scene.remove(m); obstMeshes.delete(k); }
-  for (const [k, m] of obstMirrors) { mirrorGroup.remove(m); obstMirrors.delete(k); }
+  let i = 0;
   for (const c of cells) {
-    const m = new THREE.Mesh(obstGeo, matObst);
-    m.position.copy(cellToWorld(c.x, c.y, _v)); m.position.y = 0.62;
-    scene.add(m);
-    obstMeshes.set(key(c.x, c.y), m);
-    const mm = new THREE.Mesh(obstGeo, matMirrorObst);
-    mm.position.copy(m.position); mm.renderOrder = -1;
-    mirrorGroup.add(mm);
-    obstMirrors.set(key(c.x, c.y), mm);
+    if (i >= MAX_OBST) break;
+    cellToWorld(c.x, c.y, _v);
+    _obstO.position.set(_v.x, 0.62, _v.z); _obstO.rotation.set(0, 0, 0); _obstO.scale.set(1, 1, 1);
+    _obstO.updateMatrix();
+    obstIM.setMatrixAt(i, _obstO.matrix);
+    obstMirrorIM.setMatrixAt(i, _obstO.matrix);
+    _obstO.position.set(_v.x, 0.09, _v.z); _obstO.rotation.set(-Math.PI / 2, 0, 0);
+    _obstO.updateMatrix();
+    obstRingIM.setMatrixAt(i, _obstO.matrix);
+    i++;
   }
+  obstIM.count = i; obstMirrorIM.count = i; obstRingIM.count = i;
+  obstIM.instanceMatrix.needsUpdate = true; obstMirrorIM.instanceMatrix.needsUpdate = true; obstRingIM.instanceMatrix.needsUpdate = true;
 }
 
 /* ============================== particellari ============================== */
@@ -1320,6 +1371,9 @@ function updateVisuals(t, dt){
     ribGeo.attributes.color.needsUpdate = true;
   } else ribGeo.setDrawRange(0, 0);
 
+  /* P5 obstacle emissive pulse: shared material uniform update, no shader recompile */
+  matObst.emissiveIntensity = 0.8 + 0.3 * Math.sin(t * 2.6);
+
   /* pulsing food */
   if (foodMesh.visible) {
     const s = 1 + 0.16 * Math.sin(t * 4.2);
@@ -1329,7 +1383,22 @@ function updateVisuals(t, dt){
     foodMirror.scale.set(s, s, s);
     foodMirror.rotation.y = foodMesh.rotation.y;
     foodMirror.visible = true;
-  } else foodMirror.visible = false;
+    foodHalo.position.copy(foodMesh.position);
+    const hs = 1.5 + 0.18 * Math.sin(t * 4.2);
+    foodHalo.scale.set(hs, hs, 1);
+    foodHalo.visible = true;
+    /* throttled idle sparkles rising around the food, scaled by quality tier */
+    _sparkAcc += dt;
+    if (_sparkAcc > 0.3 && G.particleScale > 0) {
+      _sparkAcc = 0;
+      for (let i = 0, nS = Math.max(1, Math.round(2 * G.particleScale)); i < nS; i++) {
+        _v.set(foodMesh.position.x + (Math.random() - 0.5) * 0.9,
+               foodMesh.position.y - 0.1 + Math.random() * 0.3,
+               foodMesh.position.z + (Math.random() - 0.5) * 0.9);
+        spawnParticle(_v, { x: 0, y: 0.5 + Math.random() * 0.4, z: 0 }, 0xffb9f2, 0.6, 0.3);
+      }
+    }
+  } else { foodMirror.visible = false; foodHalo.visible = false; }
   /* power-up bobbing + anello countdown */
   if (powerGroup.visible && G.power) {
     if (powerIcon) {
@@ -1348,7 +1417,7 @@ function updateVisuals(t, dt){
       ? Math.max(0, (G.effect.until - performance.now()) / 1000) : 0;
     const total = G.effect ? CFG.durations[G.effect.type] || 6 : 6;
     const frac = total ? Math.max(0, Math.min(1, remain / total)) : 0;
-    powerRingMat.opacity = 0.25 + 0.6 * (frac || 0.8);
+    powerRingMat.uniforms.uArc.value = frac;
     const rs = 0.8 + 0.3 * (frac || 0.8);
     powerRing.scale.set(rs, rs, 1);
   } else if (powerMirror) powerMirror.visible = false;
