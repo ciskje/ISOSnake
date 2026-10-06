@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.5</title>
+<title>ISO SNAKE v3.6</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -79,7 +79,13 @@
   .dot{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:7px;
     vertical-align:-1px; box-shadow:0 0 8px currentColor; }
 </style>
-</head>
+<style id="fxctl-css">
+#fxctl{ position:absolute; left:14px; bottom:96px; display:flex; flex-direction:column; gap:8px; z-index:7; pointer-events:auto; }
+.fxbtn{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; letter-spacing:.05em;
+  background:rgba(3,4,12,.78); color:#cfefff; border:1px solid rgba(34,211,238,.45); border-radius:10px;
+  padding:6px 12px; cursor:pointer; transition:all .15s; }
+.fxbtn:hover{ border-color:rgba(34,211,238,.9); box-shadow:0 0 10px rgba(34,211,238,.35); }
+</style></head>
 <body>
 <div id="scene"></div>
 
@@ -102,7 +108,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.5</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.6</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -187,7 +193,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.5 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.6 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -459,9 +465,10 @@ const FXPass = new ShaderPass({
     uAberr: { value: 0.0066 },
     uGlitch:{ value: 0 },
     uVign:  { value: 0.50 },
-    uScan:  { value: 0.42 },
+    uScan:  { value: 0 },        // OFF by default: toggled one-by-one with the fx buttons / keys 1-2-3
     uScanRows: { value: 0 },   // CRT band count across viewport height (fixed CSS-px spacing)
-    uGrain: { value: 1 },      // film grain multiplier (quality tiers scale it down)
+    uGrain: { value: 0 },      // film grain multiplier, OFF until its button is on
+    uGrade: { value: 0 },      // color grade block multiplier, OFF until its button is on
     uTable: { value: new THREE.Vector4(-1, -1, 1, 1) },   // padded uv-AABB of projected board: event FX masked to it
   },
   vertexShader: `
@@ -473,7 +480,7 @@ const FXPass = new ShaderPass({
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
     uniform vec2 uRes;
-    uniform float uTime, uAberr, uGlitch, uVign, uScan, uGrain, uScanRows;
+    uniform float uTime, uAberr, uGlitch, uVign, uScan, uGrain, uScanRows, uGrade;
     uniform vec4 uTable; // padded uv-AABB of the projected board: event FX only inside
     float hash(float n){ return fract(sin(n) * 43758.5453123); }
     void main(){
@@ -497,11 +504,11 @@ const FXPass = new ShaderPass({
       col.r = texture2D(tDiffuse, uv + c * ab).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * ab).b;
-      /* P6 color grade: cool shadows, warm highlights, neon saturation lift */
+      /* P6 color grade: OFF until its toggle is on (uGrade multiplier) */
       float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-      col += vec3(-0.018, 0.002, 0.05) * (1.0 - lum);
-      col += vec3(0.028, 0.012, -0.022) * lum;
-      col = mix(vec3(lum), col, 1.14);
+      col += vec3(-0.018, 0.002, 0.05) * ((1.0 - lum) * uGrade);
+      col += vec3(0.028, 0.012, -0.022) * (lum * uGrade);
+      col = mix(vec3(lum), col, 1.0 + 0.14 * uGrade);
       /* CRT scanlines + slow rolling (marked lines) */
       float scanPhase = sin(uv.y * uScanRows * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
       col *= 1.0 - uScan * pow(scanPhase, 1.6);
@@ -519,8 +526,8 @@ const FXPass = new ShaderPass({
   `,
 });
 composer.addPass(FXPass);
-FXPass.uniforms.uScan.value = isTouch ? 0.2 : 0.4;            // softer scanlines on phones (fixed spacing alone still flickers at high DPR)
-FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);  // one band every ~3 CSS px, resolution-independent
+const FxBASE_SCAN = isTouch ? 0.2 : 0.4;   // full strength when the scanline toggle is ON
+FXPass.uniforms.uScanRows.value = Math.max(24, innerHeight / 3);
 
 /* scratch corners used to project the board into screen space (FX event mask) */
 const _fxCN = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -1272,6 +1279,9 @@ addEventListener('keydown', e => {
       break;
     case 'h': toggleHelp(); break;
     case 'm': toggleMute(); break;
+    case '1': toggleFx('grade'); break;
+    case '2': toggleFx('grain'); break;
+    case '3': toggleFx('scan'); break;
     case 'enter':
     case ' ':
       if (G.helpOpen) break;
@@ -1547,6 +1557,30 @@ function frame(ts){
 }
 
 /* ============================== avvio ============================== */
+/* P6 post-processing effects start OFF and are enabled one-by-one (buttons + keys 1/2/3) */
+const FxState = { grade: false, grain: false, scan: false };
+const _fxBtns = {};
+function applyFx(){
+  FXPass.uniforms.uGrade.value = FxState.grade ? 1 : 0;
+  FXPass.uniforms.uGrain.value = FxState.grain ? 1 : 0;
+  FXPass.uniforms.uScan.value = FxState.scan ? FxBASE_SCAN : 0;
+}
+function refreshFxLabels(){ for (const k of ['grade', 'grain', 'scan']) _fxBtns[k].textContent = ({ grade: '1 ', grain: '2 ', scan: '3 '}[k]) + k.toUpperCase() + (FxState[k] ? ' on' : ' off'); }
+function toggleFx(which){ if (!(which in FxState)) return; FxState[which] = !FxState[which]; applyFx(); refreshFxLabels(); }
+function buildFxControls(){
+  const wrap = document.createElement('div'); wrap.id = 'fxctl';
+  for (const key of ['grade', 'grain', 'scan']) {
+    const b = document.createElement('button');
+    b.className = 'fxbtn';
+    b.addEventListener('click', () => toggleFx(key));
+    _fxBtns[key] = b;
+    wrap.appendChild(b);
+  }
+  document.body.appendChild(wrap);
+  refreshFxLabels();
+}
+applyFx(); buildFxControls();
+
 sfx.ensure();   // audio context once, not in the keydown hot path
 initBoard();
 updateMenuHi();
