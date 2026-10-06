@@ -470,7 +470,7 @@ const FXPass = new ShaderPass({
     uGrain: { value: 0 },      // film grain multiplier, OFF until its button is on
     uGrade: { value: 0 },      // color grade block multiplier, OFF until its button is on
     uAmiga: { value: 0 },      // Amiga OCS look block (pixel snap + dither + posterize), OFF until its button is on
-    uAmigaRes: { value: new THREE.Vector2(320, 200) },   // fixed virtual Lo-Res screen like real OCS mode 0
+    uAmigaRes: { value: new THREE.Vector2(640, 400) },   // ECS hi-res interlaced mode (the finer full-color screen games used circa 1990)
     uTable: { value: new THREE.Vector4(-1, -1, 1, 1) },   // padded uv-AABB of projected board: event FX masked to it
   },
   vertexShader: `
@@ -503,8 +503,8 @@ const FXPass = new ShaderPass({
       }
       /* aberrazione cromatica radiale (base + kick evento + glitch) */
       float ab = (uAberr + uGlitch * 0.030) * (0.4 + r * 2.2) * msk;
-      /* Amiga look: snap sampling coords to a coarse virtual Lo-Res screen (OCS mode 0 was
-         320x200), like an emulator full-screen stretch; uniform branch keeps OFF passthrough */
+      /* Amiga look: snap sampling coords to a coarse virtual screen (ECS hi-res interlace
+         was 640x400 circa 1990), like an emulator full-screen stretch; uniform branch keeps OFF passthrough */
       if (uAmiga > 0.5) uv = (floor(uv * uAmigaRes) + 0.5) / uAmigaRes;
       vec3 col;
       col.r = texture2D(tDiffuse, uv + c * ab).r;
@@ -515,14 +515,10 @@ const FXPass = new ShaderPass({
       col += vec3(-0.018, 0.002, 0.05) * ((1.0 - lum) * uGrade);
       col += vec3(0.028, 0.012, -0.022) * (lum * uGrade);
       col = mix(vec3(lum), col, 1.0 + 0.14 * uGrade);
-      /* Amiga palette emulation: ordered-dither quantization - the per-cell Bayer-ish
-         threshold shifts the rounding point INSIDE each bucket, so hatching appears only
-         where a ramp crosses two levels and every pixel stays exactly on the palette grid */
-      if (uAmiga > 0.5) {
-        vec2 gidx = floor(uv * uAmigaRes);
-        float dm = mod(floor(gidx.x / 2.0) + floor((gidx.x + gidx.y) / 2.0) * 2.0 + floor(gidx.y / 2.0), 4.0) / 4.0;
-        col = floor(col * 5.0 + dm * 0.8) / 5.0;   // levels skewed DOWN so deep areas collapse to clean planes while ramps keep their hatch
-      }
+      /* Amiga palette emulation circa 1990: EHB/AGA color count with HAM/copper-style
+         near-smooth planes - real setups stored per-pixel deltas or per-raster palettes and
+         only HAND-DREW dither wedges at ramp edges, so NO automatic global dither here */
+      if (uAmiga > 0.5) col = floor(col * 8.0 + 0.15) / 8.0;   // round skewed DOWN: adjacent dim tones (glass cell tints) snap to ONE level instead of alternating like a chessboard
       /* CRT scanlines + slow rolling (marked lines) */
       float scanPhase = sin(uv.y * uScanRows * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
       col *= 1.0 - uScan * pow(scanPhase, 1.6);
