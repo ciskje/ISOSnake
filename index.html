@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>ISO SNAKE v3.2</title>
+<title>ISO SNAKE v3.3</title>
 <style>
   :root{
     --bg:#05060f; --cyan:#22d3ee; --magenta:#ff2ec4; --green:#00ff9d;
@@ -102,7 +102,7 @@
 <div id="menu" class="overlay">
   <div class="panel">
     <div class="title">ISO SNAKE</div>
-    <div class="subtitle">neon isometric snake · 3D · v3.2</div>
+    <div class="subtitle">neon isometric snake · 3D · v3.3</div>
     <div class="stat">RECORD &nbsp;<b id="menu-hi">0</b> points · level <b id="menu-hil">1</b></div>
     <div class="btnrow">
       <button class="btn" id="btn-play">PLAY</button>
@@ -187,7 +187,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* version: 3.2 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
+/* version: 3.3 — bump X (major) for structural/gameplay changes, Y (minor) for tweaks;
     keep in sync with <title> and the menu subtitle */
 
 /* ============================== config ============================== */
@@ -349,6 +349,46 @@ const floorFx = new THREE.Mesh(
 );
 floorFx.rotation.x = -Math.PI / 2; floorFx.position.y = 0.03;
 scene.add(floorFx);
+
+/* P3: space dome: inverted unlit sphere (radius 140 > maxDistance 90, < far 200)
+   vertical gradient + hash star twinkle + 2 nebula bands + horizon glow (hue ~240) */
+const domeMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, fog: false, depthWrite: false,
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `
+    varying vec3 vDir;
+    void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: `
+    varying vec3 vDir;
+    uniform float uTime;
+    float hash(vec3 p){ p = fract(p * 0.3183099 + vec3(0.11, 0.17, 0.13)); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
+    void main(){
+      vec3 d = vDir;
+      float h = d.y;
+      vec3 top = vec3(0.006, 0.008, 0.022);
+      vec3 hor = vec3(0.022, 0.026, 0.062);
+      float t = smoothstep(-0.15, 0.65, h);
+      vec3 col = mix(hor, top, t);
+      col = mix(vec3(0.004, 0.005, 0.012), col, smoothstep(-0.4, -0.05, h));
+      float hg = exp(-abs(h) * 14.0);
+      col += vec3(0.03, 0.05, 0.13) * hg;
+      vec3 q = floor(d * 170.0);
+      float r = hash(q);
+      float star = step(0.994, r) * (0.45 + 0.55 * sin(uTime * (1.5 + r * 5.0) + r * 40.0));
+      col += vec3(0.75, 0.8, 1.0) * max(star, 0.0) * smoothstep(-0.02, 0.3, h);
+      float band1 = exp(-pow((h - 0.30) * 9.0, 2.0));
+      float band2 = exp(-pow((h - 0.52) * 12.0, 2.0));
+      float swirl = 0.5 + 0.5 * sin(d.x * 6.0 + d.z * 4.0 + uTime * 0.05);
+      col += vec3(0.10, 0.02, 0.16) * band1 * (0.35 + 0.65 * swirl);
+      col += vec3(0.02, 0.08, 0.18) * band2 * (0.35 + 0.65 * (1.0 - swirl));
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+});
+const dome = new THREE.Mesh(new THREE.SphereGeometry(140, 32, 16), domeMat);
+dome.frustumCulled = false;
+scene.add(dome);
 
 /* FX: shared state for the effect shaders (floor now; other modules to come) */
 const FX = {
@@ -1168,6 +1208,7 @@ for (const id of ['menu', 'gameover']) {
 
 /* ============================== loop ============================== */
 function updateVisuals(t, dt){
+  domeMat.uniforms.uTime.value = t;
   const active = G.state === 'playing';
   const interval = 1 / currentSpeed();
   const f = active ? Math.min(1, G.tickAge / interval) : (G.state === 'menu' ? 1 : 1);
