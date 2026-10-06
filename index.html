@@ -518,7 +518,11 @@ const FXPass = new ShaderPass({
       /* Amiga palette emulation circa 1990: EHB/AGA color count with HAM/copper-style
          near-smooth planes - real setups stored per-pixel deltas or per-raster palettes and
          only HAND-DREW dither wedges at ramp edges, so NO automatic global dither here */
-      if (uAmiga > 0.5) col = floor(col * 8.0 + 0.15) / 8.0;   // round skewed DOWN: adjacent dim tones (glass cell tints) snap to ONE level instead of alternating like a chessboard
+      if (uAmiga > 0.5) {
+        vec3 hamq = floor(col * 16.0 + 0.5) / 16.0;   // HAM palette EXACTLY 4096 colors ~ 16^3 cube (per-channel delta scheme of HAM maps roughly onto this grid)
+        float haml = dot(hamq, vec3(0.2126, 0.7152, 0.0722));
+        col = mix(col, hamq, smoothstep(0.18, 0.3, haml) * (1.0 - msk));   // also masked OUT inside the projected board quad (uTable): the per-cell glass tints there must not get amplified into a chessboard; real Amiga games kept sprites crisp on stepped backgrounds anyway
+      }
       /* CRT scanlines + slow rolling (marked lines) */
       float scanPhase = sin(uv.y * uScanRows * 3.14159 + uTime * 1.5) * 0.5 + 0.5;
       col *= 1.0 - uScan * pow(scanPhase, 1.6);
