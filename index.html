@@ -460,6 +460,7 @@ const FXPass = new ShaderPass({
     uGlitch:{ value: 0 },
     uVign:  { value: 0.50 },
     uScan:  { value: 0.42 },
+    uTable: { value: new THREE.Vector4(-1, -1, 1, 1) },   // padded uv-AABB of projected board: event FX masked to it
   },
   vertexShader: `
     varying vec2 vUv;
@@ -471,20 +472,25 @@ const FXPass = new ShaderPass({
     uniform sampler2D tDiffuse;
     uniform vec2 uRes;
     uniform float uTime, uAberr, uGlitch, uVign, uScan;
+    uniform vec4 uTable; // padded uv-AABB of the projected board: event FX only inside
     float hash(float n){ return fract(sin(n) * 43758.5453123); }
     void main(){
       vec2 uv = vUv;
       vec2 c = uv - 0.5;
       float r = length(c);
+      /* event distortion applies ONLY near the projected board, never to the sky */
+      float sx = smoothstep(uTable.x, uTable.x + 0.06, uv.x) * (1.0 - smoothstep(uTable.z - 0.06, uTable.z, uv.x));
+      float sy = smoothstep(uTable.y, uTable.y + 0.06, uv.y) * (1.0 - smoothstep(uTable.w - 0.06, uTable.w, uv.y));
+      float msk = sx * sy;
       /* glitch: slice orizzontali + distorsione (no-op a 0) */
-      if (uGlitch > 0.001) {
+      if (uGlitch > 0.001 && msk > 0.5) {
         float row = floor(uv.y * 32.0);
         float h = hash(row + floor(uTime * 24.0) * 7.0);
         uv.x = fract(uv.x + (h - 0.5) * 0.32 * uGlitch * step(0.5, h));
         uv.y += (h - 0.5) * 0.012 * uGlitch;
       }
       /* aberrazione cromatica radiale (base + kick evento + glitch) */
-      float ab = (uAberr + uGlitch * 0.030) * (0.4 + r * 2.2);
+      float ab = (uAberr + uGlitch * 0.030) * (0.4 + r * 2.2) * msk;
       vec3 col;
       col.r = texture2D(tDiffuse, uv + c * ab).r;
       col.g = texture2D(tDiffuse, uv).g;
@@ -503,6 +509,9 @@ const FXPass = new ShaderPass({
   `,
 });
 composer.addPass(FXPass);
+
+/* scratch corners used to project the board into screen space (FX event mask) */
+const _fxCN = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1436,6 +1445,20 @@ function frame(ts){
   /* the dome follows the camera: shake translates only, so keeping the sky pinned to
      the eye means eating / power-up bumps never drag the stars */
   dome.position.copy(camera.position);
+  /* event FX rect = projected board silhouette (+ margin): aberration/glitch are masked
+     to it, so eating / power-up bumps never fringe or tear the sky/stars */
+  camera.updateMatrixWorld();
+  let _mnX = Infinity, _mnY = Infinity, _mxX = -Infinity, _mxY = -Infinity;
+  _fxCN[0].set(-half, 0, -half); _fxCN[1].set(half, 0, -half);
+  _fxCN[2].set(half, 0, half); _fxCN[3].set(-half, 0, half);
+  for (let _i = 0; _i < 4; _i++) {
+    const _p = _fxCN[_i].project(camera);
+    if (_p.x < _mnX) _mnX = _p.x;
+    if (_p.x > _mxX) _mxX = _p.x;
+    if (_p.y < _mnY) _mnY = _p.y;
+    if (_p.y > _mxY) _mxY = _p.y;
+  }
+  FXPass.uniforms.uTable.value.set((_mnX + 1) * 0.5 - 0.06, (_mnY + 1) * 0.5 - 0.06, (_mxX + 1) * 0.5 + 0.06, (_mxY + 1) * 0.5 + 0.06);
   composer.render();
 }
 
